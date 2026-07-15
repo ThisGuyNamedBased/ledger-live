@@ -162,6 +162,7 @@ export interface EnvTypes {
   EXPERIMENTAL_USB: boolean;
   MOCK_APP_UPDATE: boolean;
   FORCE_PROVIDER: number;
+  MOCK_SERVER_TRANSPORT: boolean;
   MOCK: string;
   MOCK_OS_VERSION: string;
   MOCK_NO_BYPASS: boolean;
