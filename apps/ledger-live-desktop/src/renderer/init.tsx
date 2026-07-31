@@ -14,7 +14,8 @@ import {
 import { restorePayCardBalanceFilter } from "@features/flow-pay-balance/state";
 import { restorePayCardFeatureTour } from "@features/flow-pay-feature-tour/state";
 import i18n from "~/renderer/i18n/init";
-import { webFrame, ipcRenderer } from "electron";
+import { ipcRenderer } from "electron";
+import { setVisualZoomLevelLimits } from "~/renderer/webFrame";
 import each from "lodash/each";
 import { reload, getKey } from "~/renderer/storage";
 import "~/renderer/styles/global";
@@ -360,7 +361,7 @@ async function init() {
     store.dispatch(importMarketBannerState(marketBannerState));
   }
 
-  webFrame.setVisualZoomLevelLimits(1, 1);
+  setVisualZoomLevelLimits(1, 1);
   const matcher = window.matchMedia("(prefers-color-scheme: dark)");
   const updateOSTheme = () => store.dispatch(setOSDarkMode(matcher.matches));
   matcher.addEventListener("change", updateOSTheme);
