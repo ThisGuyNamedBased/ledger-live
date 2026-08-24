@@ -10,6 +10,7 @@ export type AccountKey =
   | "cosmos"
   | "ethereum"
   | "hedera"
+  | "internetComputer"
   | "multiversx"
   | "near"
   | "polkadot"
@@ -57,6 +58,9 @@ export const accountsByKey = {
   }),
   hedera: genAccount("notifications-prompt-hedera", {
     currency: getCryptoCurrencyById("hedera"),
+  }),
+  internetComputer: genAccount("notifications-prompt-internet-computer", {
+    currency: getCryptoCurrencyById("internet_computer"),
   }),
   multiversx: genAccount("notifications-prompt-multiversx", {
     currency: getCryptoCurrencyById("elrond"),
@@ -352,6 +356,20 @@ export const stakePromptCases: StakePromptCase[] = [
       mode: HEDERA_TRANSACTION_MODES.Undelegate,
       properties: { stakingNodeId: 1 },
     },
+    params: { source: stakePromptSource },
+  },
+  {
+    // ICP has no undelegation counterpart: a neuron is dissolved and disbursed from the neuron
+    // management flow, which is not a stake-prompt flow.
+    label: "Internet Computer staking",
+    bucket: "delegation/staking",
+    flowName: NavigatorName.InternetComputerStakingFlow,
+    familyExportKey: "InternetComputerStakingFlow",
+    successScreenName: ScreenName.InternetComputerStakingValidationSuccess,
+    errorScreenName: ScreenName.InternetComputerStakingValidationError,
+    accountKey: "internetComputer",
+    operationType: "STAKE_NEURON",
+    transaction: { family: "internet_computer", type: "create_neuron" },
     params: { source: stakePromptSource },
   },
   {
