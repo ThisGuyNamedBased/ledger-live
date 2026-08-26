@@ -34,3 +34,22 @@ Verify
 Disable
 
 - Or start normally: `pnpm start  -- --reset-cache`.
+
+## Pay Card session renewal (LIVE-34741)
+
+`src/mocks/card/handler.ts` mocks the OAuth2 renewal grant, so every branch of the Pay Card session
+renewal can be driven by hand. It only intercepts `grant_type=refresh_token`; the login grant reaches
+the real provider, so you can still sign in. It also answers the Card reads once its own mock tokens
+are in play, because the provider rejects tokens it never issued.
+
+Drive it from **Settings > Debug > DevTools > Card / Pay**, under "MSW Auth Renewal Mock". One button
+per documented answer of `POST /v1/auth/oauth2/token`, named by status code so each matches the Baanx
+API reference: 200, 400, 422, 498, 499 and 500, plus a slow 200, a 200 the schema rejects, and a
+transport failure.
+
+The panel works without MSW too: the buttons still call the real session accessors, and every request
+reaches the real provider. Only the answer buttons and the counters need `MSW_ENABLED=true`.
+
+`src/mocks/card/state.ts` holds the switchboard the panel and the handler share. It lives on
+`globalThis`, because the panel's props are built in `@devtools/bindings`, which cannot import from
+an app.

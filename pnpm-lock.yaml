@@ -3145,9 +3145,15 @@ importers:
       '@features/flow-pay-feature-tour':
         specifier: workspace:*
         version: link:../../features/flow/pay-feature-tour
+      '@features/platform-card':
+        specifier: workspace:*
+        version: link:../../features/platform/card
       '@features/platform-feature-flags':
         specifier: workspace:*
         version: link:../../features/platform/feature-flags
+      '@shared/api-services':
+        specifier: workspace:*
+        version: link:../../shared/api-services
       '@shared/env':
         specifier: workspace:*
         version: link:../../shared/env

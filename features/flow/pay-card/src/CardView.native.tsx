@@ -4,7 +4,13 @@ import { CardLogin, CardLogout } from "@features/flow-pay-card-auth";
 import { CardArtwork, CardVisual } from "@features/flow-pay-card-details";
 import type { CardViewProps } from "./Card.types";
 
-export function CardView({ title, oauthConfig, callback, cardVisual }: CardViewProps) {
+export function CardView({
+  title,
+  oauthConfig,
+  callback,
+  cardVisual,
+  onInspectSession,
+}: CardViewProps) {
   return (
     <Box lx={{ flex: 1, gap: "s16" }}>
       <Subheader>
@@ -17,7 +23,7 @@ export function CardView({ title, oauthConfig, callback, cardVisual }: CardViewP
           nobody is signed in. Right now each child decides on its own, so they can overlap. */}
       {cardVisual ? <CardVisual {...cardVisual} /> : <CardArtwork />}
       <CardLogin key={`${oauthConfig.apiUrl}`} oauthConfig={oauthConfig} callback={callback} />
-      <CardLogout />
+      <CardLogout onInspectSession={onInspectSession} />
     </Box>
   );
 }

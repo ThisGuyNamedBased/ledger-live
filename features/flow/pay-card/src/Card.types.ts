@@ -18,6 +18,11 @@ export type CardProps = {
   readonly formatCountervalue?: (value: number) => FormattedValue;
   /** Localized caption shown above the balance. i18n stays with the host, so the app passes the string. */
   readonly balanceLabel?: string;
+  /**
+   * Makes the signed-in card holder's details actionable. A host passes it to reach its own tooling;
+   * without one the details are plain text.
+   */
+  readonly onInspectSession?: () => void;
 };
 
 /** Props the presentational view renders, resolved by {@link useCardViewModel}. */
@@ -27,4 +32,5 @@ export type CardViewProps = {
   readonly callback?: PayCardAuthCallback | null;
   /** Balance overlay for the card face, or `undefined` to show the bare artwork. */
   readonly cardVisual?: CardVisualProps;
+  readonly onInspectSession?: () => void;
 };

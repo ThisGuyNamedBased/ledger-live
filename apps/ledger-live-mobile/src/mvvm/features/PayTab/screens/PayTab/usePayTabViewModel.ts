@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useRoute, type RouteProp } from "@react-navigation/native";
 import useEnv from "@features/platform-env";
 import { useContactsFeature } from "@features/platform-contacts";
 import { useTranslation } from "@shared/i18n";
-import type { ScreenName } from "~/const";
+import { NavigatorName, ScreenName } from "~/const";
+import { navigationRef } from "~/rootnavigation";
 import type { CardProps } from "@features/flow-pay-card";
 import type { PayTabNavigatorParamList } from "LLM/features/PayTab/types";
 import type { FeatureTourProps } from "@features/flow-pay-feature-tour";
@@ -15,6 +16,9 @@ import { usePayTabDepositOptions } from "LLM/features/PayTab/hooks/usePayTabDepo
 import { usePayTabRequestReceive } from "LLM/features/PayTab/hooks/usePayTabRequestReceive";
 import { track } from "~/analytics";
 import { PAY_TAB_DEEP_LINK } from "~/navigation/deeplinks/payTabDeepLink";
+
+/** The Card / Pay tool's id in the DevTools registry. */
+const PAY_CARD_TOOL_ID = "pay-card";
 
 export function usePayTabViewModel() {
   const { top } = useNavigationBarHeights();
@@ -45,6 +49,19 @@ export function usePayTabViewModel() {
     [apiUrl, clientId, redirectUri],
   );
 
+  /**
+   * Opens the Card / Pay DevTool from the signed-in card holder's details, so a tester can move
+   * between the Pay tab and the session controls. Development builds only.
+   */
+  const openCardDevTool = useCallback(() => {
+    navigationRef.current?.navigate(NavigatorName.Settings, {
+      screen: ScreenName.DebugDevTools,
+      params: { toolId: PAY_CARD_TOOL_ID },
+    });
+  }, []);
+
+  const onInspectSession = __DEV__ ? openCardDevTool : undefined;
+
   // The OAuth redirect, when the deep link brought one. The code is the whole of it: PKCE ties it to
   // the verifier on disk, so nothing else has to be echoed back.
   const callback: CardProps["callback"] = useMemo(
@@ -65,6 +82,7 @@ export function usePayTabViewModel() {
     cardTitle: t("payTab.card.title"),
     oauthConfig,
     callback,
+    onInspectSession,
     featureTour,
     balance,
     actionTiles,

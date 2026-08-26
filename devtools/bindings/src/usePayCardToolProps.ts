@@ -8,6 +8,7 @@ import {
   selectPayCardHasSeenFeatureTour,
 } from "@features/flow-pay-feature-tour/state";
 import type { DevToolsConfig } from "@devtools/registry";
+import { usePayCardAuthProps } from "./usePayCardAuthProps";
 
 type PayCardToolProps = Extract<DevToolsConfig[number], { id: "pay-card" }>["config"];
 type OnboardingStep = PayCardToolProps["onboarding"]["steps"][number];
@@ -16,6 +17,8 @@ type PayCardEnvVar = PayCardToolProps["env"]["vars"][number];
 export type UsePayCardToolPropsOptions = {
   /** Pass `"native"` on mobile to include the `walletPay` onboarding step. */
   readonly platform?: "web" | "native";
+  /** Sends the tester to the Pay tab to sign in. The host supplies it: navigation is app-specific. */
+  readonly openPayTab?: () => void;
 };
 
 const LEADING_ONBOARDING_STEPS: readonly OnboardingStep[] = [
@@ -145,6 +148,9 @@ export function usePayCardToolProps(options: UsePayCardToolPropsOptions = {}): P
 
   const env = useMemo(() => ({ vars: envVars, setVar: setEnvVar }), [envVars, setEnvVar]);
 
+  // Native only for now: the panel that renders these controls is the mobile one.
+  const auth = usePayCardAuthProps({ openPayTab: options.openPayTab });
+
   return useMemo(
     () => ({
       flags,
@@ -152,7 +158,8 @@ export function usePayCardToolProps(options: UsePayCardToolPropsOptions = {}): P
       hasSeenFeatureTour,
       resetPayCardFeatureTourSeen: resetFeatureTour,
       env,
+      auth: platform === "native" ? auth : undefined,
     }),
-    [flags, onboarding, hasSeenFeatureTour, resetFeatureTour, env],
+    [flags, onboarding, hasSeenFeatureTour, resetFeatureTour, env, platform, auth],
   );
 }
