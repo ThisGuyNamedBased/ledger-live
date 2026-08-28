@@ -130,9 +130,9 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
 
   const renewNow = useCallback(() => {
     run("renew", async () => {
-      // The epoch names the session this renewal is for, exactly as the base query sends it.
-      const { epoch } = await readCardSession();
-      const result = await refreshCardSession(epoch);
+      // The session id names the session this renewal is for, exactly as the base query sends it.
+      const { sessionId } = await readCardSession();
+      const result = await refreshCardSession(sessionId);
       if (result.kind === "refreshed") return `refreshed ${mask(result.accessToken)}`;
       // Rare now: a renewal that ran and failed ends the session, so this names an app that never
       // installed one.
@@ -185,11 +185,11 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     (callers: number) => {
       run(`burst ${callers}`, async () => {
         const before = readMockState()?.refreshCount;
-        // One epoch for every caller, which is what several screens hitting one expired token do.
-        const { epoch } = await readCardSession();
+        // One session id for every caller, which is what several screens hitting one expired token do.
+        const { sessionId } = await readCardSession();
         // Renewals, not reads: a read never renews now, so only this measures single flight.
         const results = await Promise.all(
-          Array.from({ length: callers }, () => refreshCardSession(epoch)),
+          Array.from({ length: callers }, () => refreshCardSession(sessionId)),
         );
         const after = readMockState()?.refreshCount;
         const renewals = before === undefined || after === undefined ? "?" : after - before;
