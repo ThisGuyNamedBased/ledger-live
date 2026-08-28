@@ -163,6 +163,7 @@ export interface EnvTypes {
   MOCK_APP_UPDATE: boolean;
   FORCE_PROVIDER: number;
   MOCK_SERVER_TRANSPORT: boolean;
+  MOCK_SERVER_TRANSPORT_URL: string;
   MOCK: string;
   MOCK_OS_VERSION: string;
   MOCK_NO_BYPASS: boolean;
