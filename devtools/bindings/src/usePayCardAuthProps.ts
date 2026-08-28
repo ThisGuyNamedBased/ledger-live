@@ -135,7 +135,9 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
       const { epoch } = await readCardSession();
       const result = await refreshCardSession(epoch);
       if (result.kind === "refreshed") return `refreshed ${mask(result.accessToken)}`;
-      if (result.kind === "unavailable") return `unavailable (${result.error.message})`;
+      // Rare now: a renewal that ran and failed ends the session, so this names an app that never
+      // installed one.
+      if (result.kind === "unavailable") return `unavailable (${result.reason})`;
       // "session-ended", or "session-replaced" when a login or a logout got in first.
       return result.kind;
     });
@@ -160,8 +162,10 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     run("break refresh token", async () => {
       const current = await cardSession.get();
       if (!current) return "no session";
-      // The first character, not the last: the panel shows the front of the token, so this is the
-      // half a tester can see change.
+      // The first character, as with the access token above: the panel shows the front of the
+      // token, so this is the half a tester can see change. Where the change lands no longer
+      // matters — every answer but a new session ends the session, so a malformed token and a
+      // rejected grant reach the same place.
       const first = current.refreshToken.slice(0, 1);
       await cardSession.set({
         accessToken: current.accessToken,
