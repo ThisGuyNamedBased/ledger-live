@@ -7,7 +7,7 @@ import {
   useGetInternalWalletsQuery,
   useOrderCardMutation,
 } from "./api";
-import { MISSING_REFRESH_TOKEN } from "./constants";
+import { MISSING_AUTHORIZATION_GRANT, MISSING_REFRESH_TOKEN } from "./constants";
 import { PayCardErrorResponseSchema } from "./schema";
 
 function jsonResponse(body: unknown): Response {
@@ -111,12 +111,38 @@ const linkedWallets = [
   },
 ];
 
+/** The hand-off both grants use, as `@features/platform-card` implements it. */
+function fakeHandoff() {
+  const received: Record<string, unknown> = {};
+  let grant: { code: string; codeVerifier: string } | null = null;
+  let counter = 0;
+  return {
+    received,
+    putGrant(next: { code: string; codeVerifier: string }) {
+      grant = next;
+    },
+    takeCardAuthorizationGrant: () => {
+      const taken = grant;
+      grant = null;
+      return taken;
+    },
+    receiveCardSession: (value: unknown) => {
+      counter += 1;
+      const handle = `card-session-${counter}`;
+      received[handle] = value;
+      return handle;
+    },
+  };
+}
+
 // Wired the way the apps wire it: the store registers the service api, never this package.
 const makeStore = (
-  getCardSessionToken: () => Promise<string | null> = () => Promise.resolve(null),
+  sessionToken: string | null = null,
   overrides: Partial<CardApiExtra> = {},
-) =>
-  configureStore({
+  extraMiddleware: Middleware[] = [],
+) => {
+  const handoff = fakeHandoff();
+  const store = configureStore({
     reducer: {
       [cardApi.reducerPath]: cardApi.reducer,
     },
@@ -126,15 +152,24 @@ const makeStore = (
           extraArgument: cardApiExtra({
             getCardApiBaseUrl: () => "https://card.test",
             getCardBaanxClientKey: () => "client-key",
-            getCardSessionToken,
+            readCardSession: () => Promise.resolve({ token: sessionToken, epoch: 1 }),
             getCardRefreshToken: () => Promise.resolve("rt_token"),
+            takeCardAuthorizationGrant: handoff.takeCardAuthorizationGrant,
+            receiveCardSession: handoff.receiveCardSession,
             refreshCardSession: () =>
-              Promise.resolve({ kind: "unavailable", error: new Error("no renewal configured") }),
+              Promise.resolve({
+                kind: "unavailable",
+                error: { message: "no renewal configured" },
+              }),
             ...overrides,
           }),
         },
-      }).concat(cardApi.middleware),
+      })
+        .concat(cardApi.middleware)
+        .concat(extraMiddleware),
   });
+  return Object.assign(store, { handoff });
+};
 
 describe("cardManagementApi configuration", () => {
   it("is the Card service api, mutated in place by injectEndpoints", () => {
@@ -187,15 +222,13 @@ describe("cardManagementApi requests", () => {
   });
 
   describe("exchangeAuthorizationCode", () => {
-    it("posts the authorization_code grant and maps the session onto camelCase", async () => {
+    it("posts the grant it took off the extra, and hands the session over out of band", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(sessionResponse));
 
       const store = makeStore();
+      store.handoff.putGrant({ code: "auth-code", codeVerifier: "verifier" });
       const result = await store.dispatch(
-        cardManagementApi.endpoints.exchangeAuthorizationCode.initiate({
-          code: "auth-code",
-          codeVerifier: "verifier",
-        }),
+        cardManagementApi.endpoints.exchangeAuthorizationCode.initiate(),
       );
 
       expect(request(fetchSpy).url).toBe("https://card.test/v1/auth/oauth2/token");
@@ -205,7 +238,46 @@ describe("cardManagementApi requests", () => {
         code: "auth-code",
         code_verifier: "verifier",
       });
-      expect(result.data).toEqual(session);
+      // The answer is a handle. The session went to its owner, not into the action.
+      expect(result.data).toEqual({ sessionHandle: "card-session-1" });
+      expect(store.handoff.received["card-session-1"]).toEqual(session);
+    });
+
+    it("puts neither the grant nor the session into any action", async () => {
+      fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(sessionResponse));
+
+      const actions: { type: string; meta?: unknown }[] = [];
+      const store = makeStore(null, {}, [recordActions(actions)]);
+      store.handoff.putGrant({ code: "auth-code", codeVerifier: "sensitive-verifier" });
+
+      await store.dispatch(
+        cardManagementApi.endpoints.exchangeAuthorizationCode.initiate(undefined, {
+          track: false,
+        }),
+      );
+
+      // Everything the desktop log export and the mobile DevTools relay would serialize.
+      const serialized = JSON.stringify(actions);
+      expect(serialized).not.toContain("sensitive-verifier");
+      expect(serialized).not.toContain("auth-code");
+      expect(serialized).not.toContain("at_token");
+      expect(serialized).not.toContain("rt_token");
+      expect(serialized).toContain("exchangeAuthorizationCode");
+    });
+
+    it("answers a wiring error when the caller put no grant in the slot", async () => {
+      fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(sessionResponse));
+
+      const store = makeStore();
+      const result = await store.dispatch(
+        cardManagementApi.endpoints.exchangeAuthorizationCode.initiate(),
+      );
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(result.error).toEqual({
+        status: "CUSTOM_ERROR",
+        error: MISSING_AUTHORIZATION_GRANT,
+      });
     });
 
     it("does not expose tokens when the response is malformed", async () => {
@@ -219,11 +291,9 @@ describe("cardManagementApi requests", () => {
       );
 
       const store = makeStore();
+      store.handoff.putGrant({ code: "auth-code", codeVerifier: "verifier" });
       const result = await store.dispatch(
-        cardManagementApi.endpoints.exchangeAuthorizationCode.initiate({
-          code: "auth-code",
-          codeVerifier: "verifier",
-        }),
+        cardManagementApi.endpoints.exchangeAuthorizationCode.initiate(),
       );
       const serializedError = JSON.stringify(result.error);
 
@@ -238,60 +308,44 @@ describe("cardManagementApi requests", () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(sessionResponse));
       const getCardRefreshToken = jest.fn(async () => "rt_token");
 
-      const store = makeStore(undefined, { getCardRefreshToken });
+      const store = makeStore(null, { getCardRefreshToken });
       const result = await store.dispatch(cardManagementApi.endpoints.refreshSession.initiate());
 
+      // Once, and only here: the renewal itself never reads the key.
       expect(getCardRefreshToken).toHaveBeenCalledTimes(1);
       expect(request(fetchSpy).url).toBe("https://card.test/v1/auth/oauth2/token");
       expect(JSON.parse(await request(fetchSpy).clone().text())).toEqual({
         grant_type: "refresh_token",
         refresh_token: "rt_token",
       });
-      expect(result.data).toEqual(session);
+      expect(result.data).toEqual({ sessionHandle: "card-session-1" });
+      expect(store.handoff.received["card-session-1"]).toEqual(session);
     });
 
-    it("carries no argument, so nothing reaches a logged action", async () => {
+    it("puts no token into any action, argument or payload", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(sessionResponse));
 
       const actions: { type: string; meta?: unknown }[] = [];
-      const store = configureStore({
-        reducer: { [cardApi.reducerPath]: cardApi.reducer },
-        middleware: gdm =>
-          gdm({
-            thunk: {
-              extraArgument: cardApiExtra({
-                cardApiBaseUrl: "https://card.test",
-                cardBaanxClientKey: "client-key",
-                getCardSessionToken: () => Promise.resolve("session-token"),
-                getCardRefreshToken: () => Promise.resolve("rt_token"),
-                refreshCardSession: () =>
-                  Promise.resolve({ kind: "unavailable", error: new Error("no renewal") }),
-              }),
-            },
-          })
-            .concat(cardApi.middleware)
-            .concat(recordActions(actions)),
-      });
+      const store = makeStore("session-token", {}, [recordActions(actions)]);
 
       await store.dispatch(
         cardManagementApi.endpoints.refreshSession.initiate(undefined, { track: false }),
       );
 
-      // `meta` is what the desktop logger records, and it is the half this endpoint controls.
-      const serializedMeta = JSON.stringify(actions.map(action => action.meta));
-      expect(serializedMeta).not.toContain("rt_token");
-      expect(serializedMeta).not.toContain("at_token");
-      expect(serializedMeta).toContain("refreshSession");
-
-      // The fulfilled payload does carry the session: a renewal has to hand it back somehow.
-      // `track: false` keeps it out of the store, and `redactCardApiAction` keeps it out of a log.
-      expect(JSON.stringify(actions)).toContain("at_token");
+      // Everything the desktop log export writes to disk and the mobile DevTools relay sends over
+      // a socket. The grant takes its credential off the extra and answers with a handle.
+      const serialized = JSON.stringify(actions);
+      expect(serialized).not.toContain("rt_token");
+      expect(serialized).not.toContain("at_token");
+      expect(serialized).not.toContain("session-token");
+      expect(serialized).toContain("refreshSession");
+      expect(serialized).toContain("card-session-1");
     });
 
     it("sends no Authorization header, even with a live session", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(sessionResponse));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       await store.dispatch(cardManagementApi.endpoints.refreshSession.initiate());
 
       expect(request(fetchSpy).headers.get("authorization")).toBeNull();
@@ -301,7 +355,7 @@ describe("cardManagementApi requests", () => {
     it("answers 401 and sends nothing when no refresh token is stored", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(sessionResponse));
 
-      const store = makeStore(undefined, { getCardRefreshToken: async () => null });
+      const store = makeStore(null, { getCardRefreshToken: async () => null });
       const result = await store.dispatch(cardManagementApi.endpoints.refreshSession.initiate());
 
       expect(fetchSpy).not.toHaveBeenCalled();
@@ -314,7 +368,7 @@ describe("cardManagementApi requests", () => {
     it("answers a nonterminal error when the store read rejects", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(sessionResponse));
 
-      const store = makeStore(undefined, {
+      const store = makeStore(null, {
         getCardRefreshToken: async () => {
           throw new Error("keychain unavailable");
         },
@@ -334,7 +388,7 @@ describe("cardManagementApi requests", () => {
         accessToken: "should-not-be-used",
       }));
 
-      const store = makeStore(undefined, { refreshCardSession });
+      const store = makeStore(null, { refreshCardSession });
       const result = await store.dispatch(cardManagementApi.endpoints.refreshSession.initiate());
 
       expect(refreshCardSession).not.toHaveBeenCalled();
@@ -356,7 +410,7 @@ describe("cardManagementApi requests", () => {
       const serializedError = JSON.stringify(result.error);
 
       expect(result.data).toBeUndefined();
-      expect(serializedError).toContain("rawResponseSchema");
+      expect(serializedError).toContain("PayCardSessionResponseSchema");
       expect(serializedError).not.toContain("sensitive-access-token");
       expect(serializedError).not.toContain("sensitive-refresh-token");
     });
@@ -375,7 +429,7 @@ describe("cardManagementApi requests", () => {
     it("sends the session bearer token alongside the client key", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ success: true }));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(cardManagementApi.endpoints.logout.initiate());
 
       expect(request(fetchSpy).url).toBe("https://card.test/v1/auth/logout");
@@ -404,7 +458,7 @@ describe("cardManagementApi requests", () => {
         }),
       );
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(cardManagementApi.endpoints.getUser.initiate());
 
       expect(request(fetchSpy).url).toBe("https://card.test/v1/user");
@@ -420,7 +474,7 @@ describe("cardManagementApi requests", () => {
     it("posts a virtual card order with the session bearer token and the client key", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse({ success: true }));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(cardManagementApi.endpoints.orderCard.initiate());
 
       expect(request(fetchSpy).url).toBe("https://card.test/v1/card/order");
@@ -436,7 +490,7 @@ describe("cardManagementApi requests", () => {
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse({ success: "yes" }));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(cardManagementApi.endpoints.orderCard.initiate());
 
       expect(result.data).toBeUndefined();
@@ -448,7 +502,7 @@ describe("cardManagementApi requests", () => {
     it("reads the card and drops everything the wire contract does not declare", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(cardStatus));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(cardManagementApi.endpoints.getCardStatus.initiate());
 
       expect(request(fetchSpy).url).toBe("https://card.test/v1/card/status");
@@ -462,7 +516,7 @@ describe("cardManagementApi requests", () => {
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(errorResponse(404, "Card not found"));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(cardManagementApi.endpoints.getCardStatus.initiate());
 
       expect(result.data).toBeUndefined();
@@ -474,7 +528,7 @@ describe("cardManagementApi requests", () => {
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse({ ...cardStatus, status: "SOMETHING_ELSE" }));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(cardManagementApi.endpoints.getCardStatus.initiate());
 
       expect(result.data).toBeUndefined();
@@ -490,7 +544,7 @@ describe("cardManagementApi requests", () => {
             : jsonResponse(cardStatus),
         );
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       // Subscribed, so the invalidation has a live cache entry to refetch.
       const status = store.dispatch(
         cardManagementApi.endpoints.getCardStatus.initiate(undefined, { subscribe: true }),
@@ -514,7 +568,7 @@ describe("cardManagementApi requests", () => {
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse(internalWalletsOnTheWire));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(
         cardManagementApi.endpoints.getInternalWallets.initiate(),
       );
@@ -533,7 +587,7 @@ describe("cardManagementApi requests", () => {
           jsonResponse([{ ...internalWallets[0], balance: "9007199254740993.000001" }]),
         );
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(
         cardManagementApi.endpoints.getInternalWallets.initiate(),
       );
@@ -546,7 +600,7 @@ describe("cardManagementApi requests", () => {
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse([internalWalletsOnTheWire[0]]));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(
         cardManagementApi.endpoints.getInternalWallets.initiate(),
       );
@@ -557,7 +611,7 @@ describe("cardManagementApi requests", () => {
     it("accepts a user with no wallets as an empty list, not an error", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse([]));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(
         cardManagementApi.endpoints.getInternalWallets.initiate(),
       );
@@ -571,7 +625,7 @@ describe("cardManagementApi requests", () => {
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse([{ ...internalWallets[0], balance: 125.4 }]));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(
         cardManagementApi.endpoints.getInternalWallets.initiate(),
       );
@@ -585,7 +639,7 @@ describe("cardManagementApi requests", () => {
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse({ wallets: internalWallets }));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(
         cardManagementApi.endpoints.getInternalWallets.initiate(),
       );
@@ -599,7 +653,7 @@ describe("cardManagementApi requests", () => {
     it("reads the linked wallets with the bearer token and the client key", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse(linkedWallets));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(
         cardManagementApi.endpoints.getCardLinkedWallets.initiate(),
       );
@@ -616,7 +670,7 @@ describe("cardManagementApi requests", () => {
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse([{ ...linkedWallets[0], priority: 0 }]));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(
         cardManagementApi.endpoints.getCardLinkedWallets.initiate(),
       );
@@ -627,7 +681,7 @@ describe("cardManagementApi requests", () => {
     it("accepts a card with nothing linked to it as an empty list", async () => {
       fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse([]));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(
         cardManagementApi.endpoints.getCardLinkedWallets.initiate(),
       );
@@ -641,7 +695,7 @@ describe("cardManagementApi requests", () => {
         .spyOn(globalThis, "fetch")
         .mockResolvedValue(jsonResponse([{ ...linkedWallets[0], priority: "1" }]));
 
-      const store = makeStore(async () => "session-token");
+      const store = makeStore("session-token");
       const result = await store.dispatch(
         cardManagementApi.endpoints.getCardLinkedWallets.initiate(),
       );
@@ -656,7 +710,7 @@ describe("cardManagementApi requests", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(jsonResponse({ id: "not-a-uuid", verification_state: "VERIFIED" }));
 
-    const store = makeStore(async () => "session-token");
+    const store = makeStore("session-token");
     const result = await store.dispatch(cardManagementApi.endpoints.getUser.initiate());
 
     expect(result.data).toBeUndefined();

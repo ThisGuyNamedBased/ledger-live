@@ -16,11 +16,18 @@ Every endpoint is declarative: `query`, never `queryFn`, with the schemas and th
 rest. [`.agents/skills/card-endpoint-shape`](.agents/skills/card-endpoint-shape/SKILL.md) has the
 shape and the reasons.
 
+**The two OAuth2 grants are the exception, and each one is a `queryFn`.** RTK Query dispatches every
+argument and every answer as a redux action, and a grant handles two credentials. So each grant takes
+its credential off `api.extra` and answers with a `sessionHandle` rather than a session. The session
+travels through `receiveCardSession`, which `@features/platform-card` implements; the caller reads it
+back with the handle. Neither grant has a generated hook: a renewal is the base query's decision, and
+the code exchange belongs to the login machine, which fills the hand-off slot first.
+
 | Endpoint | Method | Path | Purpose |
 | -------- | ------ | ---- | ------- |
 | `initiateAuthorize` | GET | `/v1/auth/oauth/authorize/initiate` | Start a login and get the hosted login URL |
-| `exchangeAuthorizationCode` | POST | `/v1/auth/oauth/token` | Exchange the authorization code for a session |
-| `refreshSession` | POST | `/v1/auth/oauth/token` | Same endpoint, `refresh_token` grant |
+| `exchangeAuthorizationCode` | POST | `/v1/auth/oauth/token` | Exchange the authorization code for a session. No argument, and it answers with a handle |
+| `refreshSession` | POST | `/v1/auth/oauth/token` | Same endpoint, `refresh_token` grant. No argument, and it answers with a handle |
 | `logout` | POST | `/v1/auth/logout` | End the session |
 | `getUser` | GET | `/v1/user` | Read the account id and verification state |
 | `orderCard` | POST | `/v1/card/order` | Order a virtual card |
@@ -33,7 +40,7 @@ effect that adds its endpoints to the shared service. The app registers `cardApi
 in the store; a view-model importing a generated hook from here triggers the injection.
 
 Reaching the backend belongs to the service, not here: base URL, `x-client-key`, the
-`Authorization: Bearer` header from `getCardSessionToken()` and the single 401 refresh all live in
+`Authorization: Bearer` header from `readCardSession()` and the single 401 refresh all live in
 `@shared/api-services`, `services/card`. The OAuth client id and redirect URI are the app's, so they
 reach the endpoints as request arguments. Every endpoint answers with its wire contract and nothing
 more.
