@@ -98,8 +98,13 @@ export type CardMockState = {
   readonly responses: readonly CardTokenResponse[];
   /** Answers the next `GET /v1/user` with a 401, then clears itself. */
   userUnauthorizedOnce: boolean;
+  /**
+   * The renewals the mock answered.
+   *
+   * Answered, not seen. A handler runs twice for a request it passes through, so a counter that
+   * covered `pass` as well would report two renewals for one. See COUNTING in `handler.ts`.
+   */
   refreshCount: number;
-  userCount: number;
 };
 
 type MockHost = { payCardMockState?: CardMockState };
@@ -115,7 +120,6 @@ export function createCardMockState(): CardMockState {
     responses: CARD_TOKEN_RESPONSES,
     userUnauthorizedOnce: false,
     refreshCount: 0,
-    userCount: 0,
   };
   (globalThis as MockHost).payCardMockState = state;
   return state;

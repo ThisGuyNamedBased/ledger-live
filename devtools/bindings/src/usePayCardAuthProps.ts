@@ -20,7 +20,6 @@ type CardMockState = {
   readonly responses: readonly { id: string; label: string; hint: string }[];
   userUnauthorizedOnce: boolean;
   refreshCount: number;
-  userCount: number;
 };
 
 function readMockState(): CardMockState | undefined {
@@ -223,12 +222,9 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     setMockTick(tick => tick + 1);
   }, []);
 
-  const resetCounts = useCallback(() => {
+  const resetRenewals = useCallback(() => {
     const state = readMockState();
-    if (state) {
-      state.refreshCount = 0;
-      state.userCount = 0;
-    }
+    if (state) state.refreshCount = 0;
     setMockTick(tick => tick + 1);
   }, []);
 
@@ -260,8 +256,7 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
       responses: mockState?.responses ?? [],
       setResponse,
       renewals: mockState?.refreshCount ?? 0,
-      userRequests: mockState?.userCount ?? 0,
-      resetCounts,
+      resetRenewals,
       armUnauthorized,
     },
   };

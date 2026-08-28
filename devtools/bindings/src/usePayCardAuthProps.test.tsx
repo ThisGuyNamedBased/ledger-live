@@ -146,7 +146,6 @@ describe("usePayCardAuthProps", () => {
       ],
       userUnauthorizedOnce: false,
       refreshCount: 3,
-      userCount: 2,
     };
     const { result } = renderHook(() => usePayCardAuthProps(), { wrapper: withStore(store) });
 
@@ -157,7 +156,7 @@ describe("usePayCardAuthProps", () => {
     act(() => result.current.mock.setResponse("400"));
     await waitFor(() => expect(result.current.mock.response).toBe("400"));
 
-    act(() => result.current.mock.resetCounts());
+    act(() => result.current.mock.resetRenewals());
     await waitFor(() => expect(result.current.mock.renewals).toBe(0));
 
     act(() => result.current.mock.armUnauthorized());

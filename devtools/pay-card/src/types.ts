@@ -63,9 +63,15 @@ export interface PayCardRenewalMockProps {
   readonly response: string;
   readonly responses: readonly PayCardMockResponse[];
   readonly setResponse: (id: string) => void;
+  /**
+   * The renewals the mock answered.
+   *
+   * The mock cannot count what it passes through: on React Native it sees such a request twice, once
+   * through `fetch` and once through the `XMLHttpRequest` that `fetch` opens. The `[card api]` trace
+   * counts every request instead, in the client, once each.
+   */
   readonly renewals: number;
-  readonly userRequests: number;
-  readonly resetCounts: () => void;
+  readonly resetRenewals: () => void;
   /** Makes the next user request answer 401, which drives the renewal a failure triggers. */
   readonly armUnauthorized: () => void;
 }

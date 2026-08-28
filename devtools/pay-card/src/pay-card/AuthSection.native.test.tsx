@@ -28,8 +28,7 @@ function buildAuth(overrides: Partial<PayCardAuthProps> = {}): PayCardAuthProps 
       ],
       setResponse: jest.fn(),
       renewals: 0,
-      userRequests: 0,
-      resetCounts: jest.fn(),
+      resetRenewals: jest.fn(),
       armUnauthorized: jest.fn(),
       ...overrides.mock,
     },
@@ -139,7 +138,8 @@ describe("AuthSection (native)", () => {
     render(<AuthSection auth={buildAuth()} />);
 
     expect(screen.getByText("MSW running")).toBeTruthy();
-    expect(screen.getByText("renewals 0 · user requests 0")).toBeTruthy();
+    // Renewals alone. The mock cannot count a request it passes through without counting it twice.
+    expect(screen.getByText("renewals 0")).toBeTruthy();
     expect(screen.getByText("What POST /v1/auth/oauth2/token answers:")).toBeTruthy();
     expect(screen.getByText("Off")).toBeTruthy();
     expect(screen.getByText("200")).toBeTruthy();

@@ -48,7 +48,18 @@ API reference: 200, 400, 422, 498, 499 and 500, plus a slow 200, a 200 the schem
 transport failure.
 
 The panel works without MSW too: the buttons still call the real session accessors, and every request
-reaches the real provider. Only the answer buttons and the counters need `MSW_ENABLED=true`.
+reaches the real provider. Only the answer buttons and the renewal counter need `MSW_ENABLED=true`.
+
+> [!IMPORTANT]
+>
+> **A handler runs twice for every request it passes through.** `msw/native` installs two
+> interceptors, one on `fetch` and one on `XMLHttpRequest`, and React Native's `fetch` is
+> `whatwg-fetch`, which is built on `XMLHttpRequest`. So a pass-through is performed with the real
+> `fetch`, that `fetch` opens an `XMLHttpRequest`, and the second interceptor hands the same request
+> back to the handler. A request the handler answers arrives once.
+>
+> So a Pay Card handler counts only what it answers. Do not count a pass-through here: count it in
+> the client. The `[card api]` trace in `@shared/api-services` prints one line per request.
 
 `src/mocks/card/state.ts` holds the switchboard the panel and the handler share. It lives on
 `globalThis`, because the panel's props are built in `@devtools/bindings`, which cannot import from

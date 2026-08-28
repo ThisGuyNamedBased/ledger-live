@@ -107,6 +107,20 @@ async function answerTokenRequest(id: string, serial: number) {
   }
 }
 
+/**
+ * COUNTING — a handler runs twice for every request it passes through.
+ *
+ * `msw/native` installs two interceptors, one on `fetch` and one on `XMLHttpRequest`. React Native's
+ * `fetch` is `whatwg-fetch`, which is built on `XMLHttpRequest`. So a request this file passes
+ * through is performed with the real `fetch`, that `fetch` opens an `XMLHttpRequest`, and the second
+ * interceptor hands the same request back here.
+ *
+ * A request this file answers never reaches the real `fetch`, so it arrives once.
+ *
+ * `refreshCount` is therefore incremented only where the mock answers. Nothing counts a pass-through,
+ * because a pass-through cannot be counted here without counting it twice. The `[card api]` trace in
+ * `@shared/api-services` runs in the client, once per request, and is the place that counts them.
+ */
 const handlers = [
   /**
    * Both OAuth2 grants share this URL. Only the renewal is mocked: intercepting the
@@ -122,6 +136,11 @@ const handlers = [
       return passthrough();
     }
 
+    // Answered, or passed through, before anything is counted. See COUNTING above.
+    if (state.tokenResponse === "pass") {
+      return passthrough();
+    }
+
     state.refreshCount += 1;
     // eslint-disable-next-line no-console
     console.log(`[card-msw] renewal #${state.refreshCount} answers ${state.tokenResponse}`);
@@ -131,8 +150,6 @@ const handlers = [
 
   /** Drives the reactive path on demand, with no waiting for a real expiry. */
   http.get("*/v1/user", ({ request }) => {
-    state.userCount += 1;
-
     if (state.userUnauthorizedOnce) {
       state.userUnauthorizedOnce = false;
       // eslint-disable-next-line no-console

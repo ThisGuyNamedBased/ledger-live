@@ -34,3 +34,9 @@ read the OS refused, so a locked keychain shows "Unreadable" with the reason rat
 the tester as signed out.
 
 The panel works without MSW, so it runs on a device. The handler stays behind `MSW_ENABLED`.
+
+The mock reports one counter, `renewals`, and counts only the renewals it answered. On React Native
+MSW installs two interceptors, one on `fetch` and one on the `XMLHttpRequest` that React Native's
+`fetch` is built on, so a handler runs twice for every request it passes through. A "user requests"
+counter therefore reported two for one, and it is removed: the `[card api]` trace in
+`@shared/api-services` runs in the client and prints one line per request.

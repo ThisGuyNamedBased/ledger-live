@@ -114,7 +114,7 @@ export function AuthSection({ auth }: { readonly auth: PayCardAuthProps }) {
             label={mock.available ? "MSW running" : "MSW off"}
           />
           <Text typography="body4" lx={{ color: "base" }}>
-            {`renewals ${mock.renewals} · user requests ${mock.userRequests}`}
+            {`renewals ${mock.renewals}`}
           </Text>
         </Box>
 
@@ -148,8 +148,13 @@ export function AuthSection({ auth }: { readonly auth: PayCardAuthProps }) {
         )}
 
         <Box style={ROW}>
-          <Button appearance="gray" size="sm" disabled={!mock.available} onPress={mock.resetCounts}>
-            Reset counters
+          <Button
+            appearance="gray"
+            size="sm"
+            disabled={!mock.available}
+            onPress={mock.resetRenewals}
+          >
+            Reset renewals
           </Button>
           <Button
             appearance="gray"
