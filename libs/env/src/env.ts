@@ -164,6 +164,8 @@ export interface EnvTypes {
   FORCE_PROVIDER: number;
   MOCK_SERVER_TRANSPORT: boolean;
   MOCK_SERVER_TRANSPORT_URL: string;
+  MOCK_SERVER_SEED: string;
+  MOCK_SERVER_SESSION: string;
   MOCK: string;
   MOCK_OS_VERSION: string;
   MOCK_NO_BYPASS: boolean;
