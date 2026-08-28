@@ -5,6 +5,10 @@ sections: **Feature flags**, **Onboarding** (toggle each step done or not-done),
 **Feature tour** (seen state plus a reset) and **Env vars** (the Card backend values, with the
 development tenant ready in each input).
 
+The native panel adds a **Secure browser** section at the bottom: a URL field and one button, which
+opens that URL in the secure browser the hosted login uses. The host supplies the action, so a host
+without such a browser shows no section.
+
 ## Import boundary
 
 This package is fully self-contained. It never imports from `@devtools/shell`, `@devtools/registry`, or any other tool. All host state and handlers arrive through `PayCardToolProps`, which is built in `@devtools/bindings` (the only bridge between the app and the tool). This keeps the component renderable standalone, outside the shell.
@@ -58,6 +62,9 @@ interface PayCardToolProps {
     }[];
     setVar: (key: string, value: string) => void;
   };
+  // Native only, and optional: absent on a host with no secure browser, which hides the section.
+  // Answers one line about what came back, and the panel prints it under the button.
+  openSecureBrowser?: (url: string) => Promise<string>;
 }
 ```
 

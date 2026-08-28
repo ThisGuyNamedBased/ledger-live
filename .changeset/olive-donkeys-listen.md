@@ -33,6 +33,11 @@ The panel follows the renewal contract: it sends the epoch of the session it rea
 read the OS refused, so a locked keychain shows "Unreadable" with the reason rather than reporting
 the tester as signed out.
 
+A "Secure browser" section closes the panel on mobile. It takes a URL and opens it in the secure
+browser the hosted login uses, so a tester reaches an authorize page, or a redirect, without the
+login flow that builds the URL. The mobile host passes the Pay tab deep link, which is what ends
+such a session, and the panel prints the redirect the session answered.
+
 The panel works without MSW, so it runs on a device. The handler stays behind `MSW_ENABLED`.
 
 The mock reports one counter, `renewals`, and counts only the renewals it answered. On React Native

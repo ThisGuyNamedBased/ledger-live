@@ -6,6 +6,7 @@ import { ToggleRow } from "../components/ToggleRow/ToggleRow";
 import { EnvVarRow } from "../components/EnvVarRow/EnvVarRow";
 import { AuthSection } from "./AuthSection";
 import { ResultToast } from "./ResultToast";
+import { SecureBrowserSection } from "./SecureBrowserSection";
 
 const BUTTON_ROW_STYLE = {
   flexDirection: "row",
@@ -15,7 +16,15 @@ const BUTTON_ROW_STYLE = {
 const PANEL_STYLE = { flex: 1 } as const;
 
 export function PayCard(props: Readonly<PayCardToolProps>) {
-  const { flags, onboarding, hasSeenFeatureTour, resetPayCardFeatureTourSeen, env, auth } = props;
+  const {
+    flags,
+    onboarding,
+    hasSeenFeatureTour,
+    resetPayCardFeatureTourSeen,
+    env,
+    auth,
+    openSecureBrowser,
+  } = props;
 
   return (
     <View style={PANEL_STYLE}>
@@ -93,6 +102,13 @@ export function PayCard(props: Readonly<PayCardToolProps>) {
             </Button>
           </Box>
         </Section>
+
+        {openSecureBrowser ? (
+          <>
+            <Divider />
+            <SecureBrowserSection open={openSecureBrowser} />
+          </>
+        ) : null}
 
         <Divider />
 

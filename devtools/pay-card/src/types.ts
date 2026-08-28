@@ -148,6 +148,14 @@ export interface PayCardEnvProps {
 }
 
 /**
+ * Opens one URL in the device's secure browser, and answers one line about what came back.
+ *
+ * The host builds it. Only the app knows the deep link that ends such a session, and only a native
+ * host has a secure browser at all, so the panel hides the section everywhere else.
+ */
+export type PayCardOpenSecureBrowser = (url: string) => Promise<string>;
+
+/**
  * Props contract for the Card / Pay DevTool.
  *
  * Built by `@devtools/bindings` (`usePayCardToolProps`) from the host's Redux
@@ -164,4 +172,9 @@ export interface PayCardToolProps {
   readonly env: PayCardEnvProps;
   /** Card session controls. Absent on hosts that do not build them yet. */
   readonly auth?: PayCardAuthProps;
+  /**
+   * Opens a URL a tester types in the secure browser. Absent on hosts without one, so the panel
+   * only offers the section when the host built it.
+   */
+  readonly openSecureBrowser?: PayCardOpenSecureBrowser;
 }

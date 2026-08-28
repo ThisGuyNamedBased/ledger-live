@@ -19,6 +19,12 @@ export type UsePayCardToolPropsOptions = {
   readonly platform?: "web" | "native";
   /** Sends the tester to the Pay tab to sign in. The host supplies it: navigation is app-specific. */
   readonly openPayTab?: () => void;
+  /**
+   * Opens one URL in the secure browser, and answers one line about what came back. The host
+   * supplies it: only a native host has such a browser, and only the app knows the deep link that
+   * ends the session.
+   */
+  readonly openSecureBrowser?: PayCardToolProps["openSecureBrowser"];
 };
 
 const LEADING_ONBOARDING_STEPS: readonly OnboardingStep[] = [
@@ -159,7 +165,17 @@ export function usePayCardToolProps(options: UsePayCardToolPropsOptions = {}): P
       resetPayCardFeatureTourSeen: resetFeatureTour,
       env,
       auth: platform === "native" ? auth : undefined,
+      openSecureBrowser: options.openSecureBrowser,
     }),
-    [flags, onboarding, hasSeenFeatureTour, resetFeatureTour, env, platform, auth],
+    [
+      flags,
+      onboarding,
+      hasSeenFeatureTour,
+      resetFeatureTour,
+      env,
+      platform,
+      auth,
+      options.openSecureBrowser,
+    ],
   );
 }

@@ -31,6 +31,11 @@ jest.mock(
   { virtual: true },
 );
 jest.mock("@devtools/transport-panel", () => ({ TransportPanel: () => null }), { virtual: true });
+// The screen needs one function of this package, and its barrel pulls the whole login flow in with
+// the native crypto module behind it. The panel's own tests cover what the browser answers.
+jest.mock("@features/flow-pay-card-auth", () => ({
+  openHostedLoginInSecureBrowser: jest.fn().mockResolvedValue({ type: "dismissed" }),
+}));
 jest.mock(
   "@devtools/wire",
   () => {

@@ -9,8 +9,10 @@ import {
   useEnvDevToolProps,
 } from "@devtools/bindings";
 import type { DevToolsConfig } from "@devtools/shell";
+import { openHostedLoginInSecureBrowser } from "@features/flow-pay-card-auth";
 import { NavigatorName, ScreenName } from "~/const";
 import { navigationRef } from "~/rootnavigation";
+import { PAY_TAB_DEEP_LINK } from "~/navigation/deeplinks/payTabDeepLink";
 import { useDevToolsRelay } from "./useDevToolsRelay";
 
 export function useDevToolsScreenViewModel() {
@@ -39,7 +41,21 @@ export function useDevToolsScreenViewModel() {
     });
   }, []);
 
-  const payCardToolProps = usePayCardToolProps({ platform: "native", openPayTab });
+  /**
+   * Opens a URL a tester types in the same secure browser the hosted login uses, so the panel
+   * exercises the code the app ships. The Pay tab deep link ends the session, exactly as the login
+   * passes it: only a custom scheme closes such a browser.
+   */
+  const openSecureBrowser = useCallback(async (url: string) => {
+    const result = await openHostedLoginInSecureBrowser(url, PAY_TAB_DEEP_LINK);
+    return result.type === "success" ? `redirected to ${result.url}` : "dismissed";
+  }, []);
+
+  const payCardToolProps = usePayCardToolProps({
+    platform: "native",
+    openPayTab,
+    openSecureBrowser,
+  });
   const envToolProps = useEnvDevToolProps();
   const { theme } = useTheme();
   const { bottom } = useSafeAreaInsets();
