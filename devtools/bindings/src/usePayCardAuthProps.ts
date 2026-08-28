@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
-import { cardSession, refreshCardSession } from "@features/platform-card";
+import { cardSession, readCardSession, refreshCardSession } from "@features/platform-card";
 import { cardApi } from "@shared/api-services";
 import type { DevToolsConfig } from "@devtools/registry";
 
@@ -65,6 +65,7 @@ export type UsePayCardAuthPropsOptions = {
 export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): PayCardAuthProps {
   const dispatch = useDispatch();
   const [session, setSession] = useState<SessionSnapshot | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ActionResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [mockTick, setMockTick] = useState(0);
@@ -78,9 +79,22 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
   }, []);
 
   const readSession = useCallback(async () => {
-    const current = await cardSession.get();
-    if (mounted.current) setSession(current);
-    return current;
+    try {
+      const current = await cardSession.get();
+      if (mounted.current) {
+        setSession(current);
+        setSessionError(null);
+      }
+      return current;
+    } catch (error) {
+      // The store refused the read. That is not an empty store, and the panel says so rather than
+      // reporting the tester as signed out.
+      if (mounted.current) {
+        setSession(null);
+        setSessionError(error instanceof Error ? error.message : String(error));
+      }
+      return null;
+    }
   }, []);
 
   /** Runs one action, reports what it answered, and re-reads the session it may have changed. */
@@ -117,10 +131,13 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
 
   const renewNow = useCallback(() => {
     run("renew", async () => {
-      const result = await refreshCardSession();
+      // The epoch names the session this renewal is for, exactly as the base query sends it.
+      const { epoch } = await readCardSession();
+      const result = await refreshCardSession(epoch);
       if (result.kind === "refreshed") return `refreshed ${mask(result.accessToken)}`;
-      if (result.kind === "session-ended") return "session-ended";
-      return `unavailable (${JSON.stringify(result.error)})`;
+      if (result.kind === "unavailable") return `unavailable (${result.error.message})`;
+      // "session-ended", or "session-replaced" when a login or a logout got in first.
+      return result.kind;
     });
   }, [run]);
 
@@ -165,9 +182,11 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     (callers: number) => {
       run(`burst ${callers}`, async () => {
         const before = readMockState()?.refreshCount;
+        // One epoch for every caller, which is what several screens hitting one expired token do.
+        const { epoch } = await readCardSession();
         // Renewals, not reads: a read never renews now, so only this measures single flight.
         const results = await Promise.all(
-          Array.from({ length: callers }, () => refreshCardSession()),
+          Array.from({ length: callers }, () => refreshCardSession(epoch)),
         );
         const after = readMockState()?.refreshCount;
         const renewals = before === undefined || after === undefined ? "?" : after - before;
@@ -220,6 +239,7 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
 
   return {
     session,
+    sessionError,
     busy,
     lastResult,
     readTokens,

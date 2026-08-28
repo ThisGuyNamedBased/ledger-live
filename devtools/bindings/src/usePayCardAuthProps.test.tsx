@@ -36,6 +36,36 @@ describe("usePayCardAuthProps", () => {
     await waitFor(() => expect(result.current.session).toBeNull());
   });
 
+  it("reports a store it could not read apart from an empty one", async () => {
+    // The native store rejects a read the OS refused. An empty store ends a session, so the panel
+    // must not report a locked keychain as a signed-out tester.
+    const get = jest
+      .spyOn(cardSession, "get")
+      .mockRejectedValue(new Error("The keychain is locked"));
+
+    const { result } = renderHook(() => usePayCardAuthProps(), { wrapper: withStore(store) });
+
+    await waitFor(() => expect(result.current.sessionError).toBe("The keychain is locked"));
+    expect(result.current.session).toBeNull();
+    get.mockRestore();
+  });
+
+  it("clears the read failure once the store answers again", async () => {
+    const get = jest
+      .spyOn(cardSession, "get")
+      .mockRejectedValueOnce(new Error("The keychain is locked"));
+    await cardSession.set(session);
+
+    const { result } = renderHook(() => usePayCardAuthProps(), { wrapper: withStore(store) });
+    await waitFor(() => expect(result.current.sessionError).not.toBeNull());
+
+    act(() => result.current.readTokens());
+
+    await waitFor(() => expect(result.current.sessionError).toBeNull());
+    expect(result.current.session?.accessToken).toBe("at_token");
+    get.mockRestore();
+  });
+
   it("reads the stored session", async () => {
     await cardSession.set(session);
     const { result } = renderHook(() => usePayCardAuthProps(), { wrapper: withStore(store) });

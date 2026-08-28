@@ -85,6 +85,14 @@ export interface PayCardActionResult {
  */
 export interface PayCardAuthProps {
   readonly session: PayCardSessionSnapshot | null;
+  /**
+   * Why the last read of the secure store failed, when it did.
+   *
+   * A store that refused a read is not an empty store, and the panel must not report it as one. The
+   * native store rejects such a read rather than answering "no session", precisely so that a locked
+   * keychain cannot pass for a signed-out user.
+   */
+  readonly sessionError: string | null;
   /** True while an action is running, so the panel can disable its buttons. */
   readonly busy: boolean;
   /** What the last action reported. The panel shows it as a banner. */

@@ -26,4 +26,11 @@ in development builds. Without a host callback the details stay plain text.
 `DevTools` gains an optional `initialToolId`, so a host can open the shell straight on one tool
 instead of the catalogue. The mobile DevTools route carries the id as a param.
 
+The panel follows the renewal contract: it sends the epoch of the session it read, and names a
+`session-replaced` answer when a login or a logout got in first.
+
+"Auth session" tells a store it could not read apart from an empty one. The native store rejects a
+read the OS refused, so a locked keychain shows "Unreadable" with the reason rather than reporting
+the tester as signed out.
+
 The panel works without MSW, so it runs on a device. The handler stays behind `MSW_ENABLED`.

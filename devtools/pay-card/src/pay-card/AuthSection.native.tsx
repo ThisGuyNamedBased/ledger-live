@@ -27,7 +27,7 @@ function Field({ label, value }: { readonly label: string; readonly value: strin
 }
 
 export function AuthSection({ auth }: { readonly auth: PayCardAuthProps }) {
-  const { session, mock, busy } = auth;
+  const { session, sessionError, mock, busy } = auth;
 
   /** Says at a glance who answers these calls: the mock, or the real provider. */
   const requestLabel = (label: string) => (mock.available ? `[MSW] ${label}` : label);
@@ -38,7 +38,16 @@ export function AuthSection({ auth }: { readonly auth: PayCardAuthProps }) {
   return (
     <>
       <Section title="Auth session">
-        {session ? (
+        {sessionError !== null ? (
+          <Box style={ROW}>
+            {/* A store that refused a read holds no answer either way. Saying "No session" here
+                would send a tester to the login screen over a locked keychain. */}
+            <Tag size="sm" appearance="error" label="Unreadable" />
+            <Text typography="body4" lx={{ color: "muted" }}>
+              {sessionError}
+            </Text>
+          </Box>
+        ) : session ? (
           <Box style={ROW}>
             <Tag size="sm" appearance="success" label="Live" />
             <Field label="access" value={mask(session.accessToken)} />
@@ -53,7 +62,7 @@ export function AuthSection({ auth }: { readonly auth: PayCardAuthProps }) {
           </Box>
         )}
 
-        {!session && auth.openPayTab ? (
+        {!session && sessionError === null && auth.openPayTab ? (
           <Box style={ROW}>
             <Button appearance="accent" size="sm" onPress={auth.openPayTab}>
               Go to the Pay tab

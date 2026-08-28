@@ -8,6 +8,7 @@ function buildAuth(overrides: Partial<PayCardAuthProps> = {}): PayCardAuthProps 
       accessToken: "at_a_very_long_access_token",
       refreshToken: "rt_a_very_long_refresh_token",
     },
+    sessionError: null,
     busy: false,
     lastResult: null,
     readTokens: jest.fn(),
@@ -172,5 +173,16 @@ describe("AuthSection (native)", () => {
     expect(screen.getByText("MSW off")).toBeTruthy();
     expect(screen.queryByText("200")).toBeNull();
     expect(screen.queryByText("What POST /v1/auth/oauth2/token answers:")).toBeNull();
+  });
+
+  it("reports a store it could not read apart from an empty one", () => {
+    render(
+      <AuthSection auth={buildAuth({ session: null, sessionError: "The keychain is locked" })} />,
+    );
+
+    // A locked keychain must never read as a signed-out tester.
+    expect(screen.getByText("Unreadable")).toBeTruthy();
+    expect(screen.getByText("The keychain is locked")).toBeTruthy();
+    expect(screen.queryByText("No session")).toBeNull();
   });
 });
