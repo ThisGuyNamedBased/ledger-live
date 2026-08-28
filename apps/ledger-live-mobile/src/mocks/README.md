@@ -47,6 +47,10 @@ per documented answer of `POST /v1/auth/oauth2/token`, named by status code so e
 API reference: 200, 400, 422, 498, 499 and 500, plus a slow 200, a 200 the schema rejects, and a
 transport failure.
 
+Only **200** keeps the session. Every other button ends it, which is the one renewal rule — see
+"Renewal" in `@features/platform-card`. The buttons still differ, because a tester must see that
+each documented status reaches that end, and by which route.
+
 The panel works without MSW too: the buttons still call the real session accessors, and every request
 reaches the real provider. Only the answer buttons and the renewal counter need `MSW_ENABLED=true`.
 
