@@ -461,6 +461,38 @@ function getTokenMintAddress(intent: TransactionIntent): string | undefined {
   return undefined;
 }
 
+// The recipient may be a token account rather than a wallet: deriving an associated account from
+// one throws `TokenOwnerOffCurveError`, an ATA being off the ed25519 curve.
+async function resolveRecipientDescriptor(
+  api: ChainAPI,
+  recipient: string,
+  mintAddress: string,
+  tokenProgram: SolanaTokenProgram,
+): Promise<TokenTransferCommand["recipientDescriptor"]> {
+  const recipientTokenAccount = await getMaybeTokenAccount(recipient, api);
+  if (recipientTokenAccount && !(recipientTokenAccount instanceof Error)) {
+    return {
+      walletAddress: recipientTokenAccount.owner.toBase58(),
+      tokenAccAddress: recipient,
+      shouldCreateAsAssociatedTokenAccount: false,
+      userInputType: UserInputType.ATA,
+    };
+  }
+
+  const associatedAddress = (
+    await findAssociatedTokenAccountPubkey(recipient, mintAddress, tokenProgram)
+  ).toBase58();
+  const associatedAccount = await getMaybeTokenAccount(associatedAddress, api);
+
+  return {
+    walletAddress: recipient,
+    tokenAccAddress: associatedAddress,
+    shouldCreateAsAssociatedTokenAccount:
+      associatedAccount === undefined || associatedAccount instanceof Error,
+    userInputType: UserInputType.SOL,
+  };
+}
+
 async function resolveTokenTransferCommand(
   api: ChainAPI,
   intent: TransactionIntent,
@@ -485,27 +517,16 @@ async function resolveTokenTransferCommand(
     resolvedProgram,
   );
 
-  const recipientAta = await findAssociatedTokenAccountPubkey(
-    intent.recipient,
-    mintAddress,
-    resolvedProgram,
-  );
-  const recipientAtaAddress = recipientAta.toBase58();
-
-  const recipientTokenAccount = await getMaybeTokenAccount(recipientAtaAddress, api);
-  const shouldCreateAta =
-    recipientTokenAccount === undefined || recipientTokenAccount instanceof Error;
-
   const command: TokenTransferCommand = {
     kind: "token.transfer",
     ownerAddress: intent.sender,
     ownerAssociatedTokenAccountAddress: senderAta.toBase58(),
-    recipientDescriptor: {
-      walletAddress: intent.recipient,
-      tokenAccAddress: recipientAtaAddress,
-      shouldCreateAsAssociatedTokenAccount: shouldCreateAta,
-      userInputType: UserInputType.SOL,
-    },
+    recipientDescriptor: await resolveRecipientDescriptor(
+      api,
+      intent.recipient,
+      mintAddress,
+      resolvedProgram,
+    ),
     amount: Number(intent.amount),
     mintAddress,
     mintDecimals,

@@ -353,8 +353,9 @@ describe("craftTransaction", () => {
         extensions,
       });
       mockedGetMaybeTokenMintProgram.mockResolvedValue(tokenProgram);
-      mockedGetMaybeTokenAccount.mockResolvedValue(
-        recipientAtaExists ? { mint: CWIF_MINT } : undefined,
+      // The recipient here is a wallet address, so only its derived associated account resolves.
+      mockedGetMaybeTokenAccount.mockImplementation(async address =>
+        address === TEST_RECIPIENT || !recipientAtaExists ? undefined : { mint: CWIF_MINT },
       );
       mockedFindAssociatedTokenAccountPubkey.mockResolvedValue(SENDER_ATA);
       mockedBuildTokenTransferInstructions.mockResolvedValue([]);
@@ -1122,6 +1123,43 @@ describe("craftTransaction – token edge cases", () => {
     ).rejects.toThrow("Cannot resolve mint account");
   });
 
+  it("should send to a token account given as the recipient, without deriving one", async () => {
+    const RECIPIENT_ATA = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T";
+    mockedGetMaybeMintAccount.mockResolvedValue({
+      decimals: 6,
+      supply: "1000",
+      isInitialized: true,
+    });
+    mockedGetMaybeTokenMintProgram.mockResolvedValue("spl-token");
+    mockedGetMaybeTokenAccount.mockResolvedValue({
+      mint: "SomeMint11111111111111111111111111111111111",
+      owner: new PublicKey(TEST_RECIPIENT),
+    });
+    mockedFindAssociatedTokenAccountPubkey.mockResolvedValue(new PublicKey(TEST_ADDRESS));
+    mockedBuildTokenTransferInstructions.mockResolvedValue([]);
+
+    await craftTransaction(api, {
+      intentType: "transaction",
+      type: "send",
+      sender: TEST_ADDRESS,
+      recipient: RECIPIENT_ATA,
+      amount: 1000n,
+      asset: { type: "spl-token", assetReference: "SomeMint11111111111111111111111111111111111" },
+    });
+
+    expect(buildTokenTransferInstructions).toHaveBeenCalledWith(
+      api,
+      expect.objectContaining({
+        recipientDescriptor: {
+          walletAddress: TEST_RECIPIENT,
+          tokenAccAddress: RECIPIENT_ATA,
+          shouldCreateAsAssociatedTokenAccount: false,
+          userInputType: "ata",
+        },
+      }),
+    );
+  });
+
   it("should fallback to spl-token when getMaybeTokenMintProgram returns an Error", async () => {
     mockedGetMaybeMintAccount.mockResolvedValue({
       decimals: 6,
@@ -1129,7 +1167,9 @@ describe("craftTransaction – token edge cases", () => {
       isInitialized: true,
     });
     mockedGetMaybeTokenMintProgram.mockResolvedValue(new Error("not found"));
-    mockedGetMaybeTokenAccount.mockResolvedValue({ mint: "x" });
+    mockedGetMaybeTokenAccount.mockImplementation(async address =>
+      address === TEST_RECIPIENT ? undefined : { mint: "x" },
+    );
     mockedFindAssociatedTokenAccountPubkey.mockResolvedValue(new PublicKey(TEST_RECIPIENT));
     mockedBuildTokenTransferInstructions.mockResolvedValue([]);
 
