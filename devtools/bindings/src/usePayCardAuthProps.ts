@@ -68,7 +68,7 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
   const [sessionError, setSessionError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ActionResult | null>(null);
   const [busy, setBusy] = useState(false);
-  const [mockTick, setMockTick] = useState(0);
+  const [, setMockTick] = useState(0);
   const mounted = useRef(true);
   const resultId = useRef(0);
 
@@ -244,9 +244,6 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
       failed: false,
     });
   }, [nextResultId]);
-
-  // The mock object is mutated in place, so the tick is what makes a change visible.
-  void mockTick;
 
   return {
     session,
