@@ -23,7 +23,6 @@ import type {
   FeeEstimation,
   MapMemo,
   MemoNotSupported,
-  Stake,
   StakeState,
   StakingOperation,
   StringMemo,

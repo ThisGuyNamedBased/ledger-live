@@ -697,7 +697,7 @@ function validateRecipientRequiredMemo(
 ): void {
   if (!recipientAccInfo.extensions) return;
 
-  const isRecipientMemoRequired = recipientAccInfo.extensions.find(
+  const isRecipientMemoRequired = recipientAccInfo.extensions.some(
     ext =>
       ext.extension === "memoTransfer" &&
       (ext as MemoTransferExt).state.requireIncomingTransferMemos,
