@@ -130,6 +130,28 @@ describe("estimateFees", () => {
     });
   });
 
+  // A partner-built transaction is measured as-is; nothing is derived from the intent.
+  it("measures a partner-built transaction rather than a dummy one", async () => {
+    const api = createMockApi([7000]);
+    setupBuildMock();
+
+    const result = await estimateFees(api, {
+      intentType: "transaction",
+      type: "send",
+      sender: TEST_ADDRESS,
+      recipient: "",
+      amount: 0n,
+      asset: { type: "native" },
+      data: {
+        type: "solana",
+        raw: "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAEDNzWs4isgmR+LEHY8ZcgBBLMnC4ckD1iuhSa2/Y+69I91oyGFaAZ/9w4srgx9KoqiHtPM6Vur7h4D6XVoSgrEhAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALt5JNk+MAN8BXYrlkxMEL1C/sM3+ZFYwZw4eofBOKp4BAgIAAQwCAAAAgJaYAAAAAAA=",
+      },
+    } as unknown as TransactionIntent);
+
+    expect(result).toEqual({ value: 7000n });
+    expect(buildVersionedTransaction).not.toHaveBeenCalled();
+  });
+
   it("should propagate errors from estimateTxFee", async () => {
     buildVersionedTransaction.mockRejectedValueOnce(new Error("RPC error"));
 

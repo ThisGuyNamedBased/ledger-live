@@ -67,7 +67,7 @@ import type { ChainAPI } from "../network";
 
 export async function validateIntent(
   api: ChainAPI,
-  transactionIntent: TransactionIntent<StringMemo | MemoNotSupported>,
+  transactionIntent: TransactionIntent<StringMemo | MemoNotSupported> & { data?: { type: string } },
   balances: Balance[],
   customFees?: FeeEstimation,
 ): Promise<TransactionValidation> {
@@ -75,6 +75,14 @@ export async function validateIntent(
   const warnings: Record<string, Error> = {};
 
   const estimatedFees = customFees?.value ?? 0n;
+
+  // A transaction a partner already built describes itself; the intent's recipient and amount are
+  // placeholders, so validating them would reject a perfectly good payload. Legacy did the same:
+  // its `raw` command carried empty errors and warnings (`rawTransaction.ts:buildRawTransaction`).
+  if (transactionIntent.data?.type === "solana") {
+    return { errors, warnings, estimatedFees, amount: 0n, totalSpent: estimatedFees };
+  }
+
   const isTokenTransfer = transactionIntent.asset.type !== "native";
 
   if (isSolanaStakingTransactionIntent(transactionIntent)) {

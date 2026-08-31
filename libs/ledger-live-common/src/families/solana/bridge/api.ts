@@ -1,4 +1,4 @@
-import type { AssetInfo } from "@ledgerhq/coin-module-framework/api/types";
+import type { AssetInfo, TxData } from "@ledgerhq/coin-module-framework/api/types";
 import { getCryptoAssetsStore } from "@ledgerhq/ledger-wallet-framework/cryptoAssetsStore";
 import type {
   BridgeApi,
@@ -8,6 +8,7 @@ import type { Account, OperationType } from "@ledgerhq/types-live";
 import BigNumber from "bignumber.js";
 import type { CryptoCurrency } from "@domain/entity-currency-crypto";
 import type { TokenCurrency } from "@domain/entity-currency-token";
+import type { SolanaTxData } from "../types";
 
 export async function getTokenFromAsset(
   currency: CryptoCurrency,
@@ -50,6 +51,21 @@ export function computeIntentType(transaction: Record<string, unknown>): string 
 }
 
 /**
+ * Carries a transaction a partner already built — LiFi's swap payload, written onto `raw` by
+ * `exchange/swap/transactionStrategies.ts`. The legacy bridge short-circuited on it
+ * (`coin-solana/prepareTransaction.ts`); the generic bridge crafts from the intent, so without this
+ * the bytes would be dropped and a plain transfer signed in their place.
+ *
+ * Every other transaction keeps the coin module's own answer, `{ type: "none" }`.
+ */
+export function buildIntentData(transaction: Record<string, unknown>): TxData {
+  const { raw, templateId } = transaction as { raw?: string; templateId?: string };
+  if (!raw) return { type: "none" };
+  const data: SolanaTxData = { type: "solana", raw, ...(templateId ? { templateId } : {}) };
+  return data;
+}
+
+/**
  * Solana's staking modes do not map onto the framework's default operation types, and the pending
  * row must read the same as the row the next sync produces (`coin-solana/logic/listOperations.ts`):
  * creating a stake account is three instructions that resolve to `DELEGATE`, and a withdrawal
@@ -87,6 +103,7 @@ export default function solanaBridge(currency: CryptoCurrency): BridgeApi {
     getTokenFromAsset: async (asset: AssetInfo) => getTokenFromAsset(currency, asset),
     getAssetFromToken: (token: TokenCurrency, owner: string) => getAssetFromToken(token, owner),
     computeIntentType: (transaction: Record<string, unknown>) => computeIntentType(transaction),
+    buildIntentData,
     describeOptimisticOperation,
   };
 }

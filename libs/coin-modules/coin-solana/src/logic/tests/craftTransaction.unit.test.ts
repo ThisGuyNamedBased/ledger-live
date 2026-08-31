@@ -72,6 +72,83 @@ const TEST_BLOCKHASH = "EEbZs6DmDyDjucyYbo3LwVJU7pQYuVopYcYTSEZXskW3";
 // craftTransaction
 // ---------------------------------------------------------------------------
 
+const PREBUILT_TX =
+  "AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAEDNzWs4isgmR+LEHY8ZcgBBLMnC4ckD1iuhSa2/Y+69I91oyGFaAZ/9w4srgx9KoqiHtPM6Vur7h4D6XVoSgrEhAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALt5JNk+MAN8BXYrlkxMEL1C/sM3+ZFYwZw4eofBOKp4BAgIAAQwCAAAAgJaYAAAAAAA=";
+const PREBUILT_FEE_PAYER = "4iWtrn54zi89sHQv6xHyYwDsrPJvqcSKRJGBLrbErCsx";
+
+// A partner-built transaction (LiFi's swap payload) reaches the coin module through `intent.data`.
+describe("craftTransaction — partner-built transaction", () => {
+  const mockGetLatestBlockhash = jest.fn() as jest.MockedFunction<ChainAPI["getLatestBlockhash"]>;
+  const mockGetFeeForMessage = jest.fn() as jest.MockedFunction<ChainAPI["getFeeForMessage"]>;
+  const api = {
+    getLatestBlockhash: mockGetLatestBlockhash,
+    getFeeForMessage: mockGetFeeForMessage,
+  } as unknown as ChainAPI;
+
+  const intent = {
+    intentType: "transaction",
+    type: "send",
+    sender: PREBUILT_FEE_PAYER,
+    // The intent's recipient and amount are placeholders: the bytes are the transaction.
+    recipient: "",
+    amount: 0n,
+    asset: { type: "native" },
+    data: { type: "solana", raw: PREBUILT_TX },
+  } as unknown as TransactionIntent;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetLatestBlockhash.mockResolvedValue({
+      blockhash: TEST_BLOCKHASH,
+      lastValidBlockHeight: 280064048,
+    });
+    mockGetFeeForMessage.mockResolvedValue(5000);
+  });
+
+  it("signs the partner's bytes rather than crafting from the intent", async () => {
+    const result = await craftTransaction(api, intent);
+
+    const deserialized = VersionedTransaction.deserialize(
+      Buffer.from(result.transaction, "base64"),
+    );
+    expect(deserialized.message.staticAccountKeys[0].toBase58()).toBe(PREBUILT_FEE_PAYER);
+    expect(result.details?.estimatedFee).toBe("5000");
+    expect(buildTransferInstructions).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the blockhash while the transaction is still unsigned", async () => {
+    const result = await craftTransaction(api, intent);
+
+    const deserialized = VersionedTransaction.deserialize(
+      Buffer.from(result.transaction, "base64"),
+    );
+    expect(deserialized.message.recentBlockhash).toBe(TEST_BLOCKHASH);
+    expect(result.details?.recentBlockhash).toBe(TEST_BLOCKHASH);
+  });
+
+  it("honours custom fees without asking the chain", async () => {
+    const result = await craftTransaction(api, intent, { value: 12345n });
+
+    expect(result.details?.estimatedFee).toBe("12345");
+    expect(mockGetFeeForMessage).not.toHaveBeenCalled();
+  });
+
+  it("refuses a transaction whose fee payer is not the sender", async () => {
+    await expect(
+      craftTransaction(api, { ...intent, sender: TEST_ADDRESS } as TransactionIntent),
+    ).rejects.toThrow("Sender does not match transaction fee payer");
+  });
+
+  it("refuses bytes it cannot deserialize", async () => {
+    await expect(
+      craftTransaction(api, {
+        ...intent,
+        data: { type: "solana", raw: "bm90LWEtdHJhbnNhY3Rpb24=" },
+      } as unknown as TransactionIntent),
+    ).rejects.toThrow("Invalid or unsupported raw transaction");
+  });
+});
+
 describe("craftTransaction", () => {
   const mockGetLatestBlockhash = jest.fn() as jest.MockedFunction<ChainAPI["getLatestBlockhash"]>;
   const mockGetFeeForMessage = jest.fn() as jest.MockedFunction<ChainAPI["getFeeForMessage"]>;

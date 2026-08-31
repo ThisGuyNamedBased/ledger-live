@@ -13,7 +13,7 @@ import { PARSED_PROGRAMS } from "../network/chain/program/constants";
 import { getMaybeTokenMint, getStakeAccountAddressWithSeed } from "../network/chain/web3";
 import type { TransferFeeConfigExt } from "../network/chain/account/tokenExtensions";
 import { transferFeeForIntent } from "../helpers/token";
-import type { TransferFeeCalculated } from "../types";
+import type { SolanaTxData, TransferFeeCalculated } from "../types";
 import { UserInputType } from "../signer";
 import type { SolanaTokenProgram, TokenTransferCommand } from "../types";
 import { Transaction, TransactionModel } from "../types";
@@ -39,9 +39,16 @@ const BASE_TRANSACTION: Transaction = {
  */
 export async function estimateFees(
   api: ChainAPI,
-  intent: TransactionIntent<StringMemo | MemoNotSupported>,
+  intent: TransactionIntent<StringMemo | MemoNotSupported> & { data?: { type: string } },
   _customFeesParameters?: FeeEstimation["parameters"],
 ): Promise<FeeEstimation> {
+  // A partner-built transaction is measured as-is; there is nothing to derive from the intent.
+  if (intent.data?.type === "solana") {
+    const { raw } = intent.data as SolanaTxData;
+    const message = OnChainTransaction.deserialize(Buffer.from(raw, "base64")).message;
+    return { value: BigInt((await api.getFeeForMessage(message)) ?? DEFAULT_TX_FEE) };
+  }
+
   const kind = mapIntentToTxKind(intent);
   const tokenProgram = resolveTokenProgramFromAsset(intent.asset);
   const fee = await estimateTxFee(api, intent.sender, kind, tokenProgram);

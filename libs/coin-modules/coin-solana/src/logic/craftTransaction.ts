@@ -50,8 +50,9 @@ import type {
   TransferCommand,
   Transaction,
   SolanaTokenProgram,
+  SolanaTxData,
 } from "../types";
-import { assertUnreachable, DUMMY_SIGNATURE } from "../utils";
+import { assertUnreachable, DUMMY_SIGNATURE, ZERO_FILLED_DUMMY_SIGNATURE } from "../utils";
 
 // ---------------------------------------------------------------------------
 // Coin Module API: craft a transaction from a TransactionIntent
@@ -59,11 +60,17 @@ import { assertUnreachable, DUMMY_SIGNATURE } from "../utils";
 
 export async function craftTransaction(
   api: ChainAPI,
-  intent: TransactionIntent<StringMemo | MemoNotSupported> | StakingTransactionIntent,
+  intent: (TransactionIntent<StringMemo | MemoNotSupported> | StakingTransactionIntent) & {
+    data?: { type: string };
+  },
   customFees?: FeeEstimation,
 ): Promise<CraftedTransaction> {
   if (!isValidBase58Address(intent.sender)) {
     throw new Error("Invalid sender address");
+  }
+
+  if (intent.data?.type === "solana") {
+    return craftPrebuiltTransaction(api, intent.data as SolanaTxData, intent.sender, customFees);
   }
 
   if (intent.type === "stake.withdraw") {
@@ -87,6 +94,55 @@ export async function craftTransaction(
   }
 
   return craftSendTransactionFromIntent(api, intent, customFees);
+}
+
+/**
+ * A transaction a partner already built: the bytes are the transaction, so nothing is derived from
+ * the intent. Only the blockhash is refreshed, and only while the transaction is still unsigned —
+ * mirroring what `buildVersionedTransaction` does for the same payload on the legacy path.
+ */
+async function craftPrebuiltTransaction(
+  api: ChainAPI,
+  data: SolanaTxData,
+  sender: string,
+  customFees?: FeeEstimation,
+): Promise<CraftedTransaction> {
+  let transaction: VersionedTransaction;
+  try {
+    transaction = VersionedTransaction.deserialize(Buffer.from(data.raw, "base64"));
+  } catch {
+    throw new Error("Invalid or unsupported raw transaction");
+  }
+
+  const feePayer = transaction.message.staticAccountKeys[0]?.toBase58();
+  if (feePayer && feePayer !== sender) {
+    throw new Error("Sender does not match transaction fee payer");
+  }
+
+  const recentBlockhash = await api.getLatestBlockhash();
+  // Both fills mean "not signed yet" -- `signOperation.ts` reads them the same way. A partner's
+  // transaction arrives zero-filled, so checking only `DUMMY_SIGNATURE` would leave it on a
+  // blockhash that may already have expired.
+  const unsigned = transaction.signatures.every(sig => {
+    const buf = Buffer.from(sig);
+    return buf.equals(DUMMY_SIGNATURE) || buf.equals(ZERO_FILLED_DUMMY_SIGNATURE);
+  });
+  if (unsigned) {
+    transaction.message.recentBlockhash = recentBlockhash.blockhash;
+  }
+
+  const fee = customFees
+    ? customFees.value
+    : BigInt((await api.getFeeForMessage(transaction.message)) ?? 5000);
+
+  return {
+    transaction: Buffer.from(transaction.serialize()).toString("base64"),
+    details: {
+      recentBlockhash: transaction.message.recentBlockhash,
+      lastValidBlockHeight: recentBlockhash.lastValidBlockHeight,
+      estimatedFee: fee.toString(),
+    },
+  };
 }
 
 async function craftWithdrawTransaction(

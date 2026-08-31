@@ -161,6 +161,35 @@ function makeBalances(native = 5_000_000_000n, locked = 890_880n): Balance[] {
 }
 
 describe("validateIntent", () => {
+  // A partner-built transaction describes itself; the intent's recipient and amount are
+  // placeholders, so validating them would reject a perfectly good payload.
+  describe("partner-built transaction", () => {
+    const prebuilt = makeIntent({
+      recipient: "",
+      amount: 0n,
+    }) as TransactionIntent & { data: { type: string; raw: string } };
+    prebuilt.data = { type: "solana", raw: "AQID" };
+
+    it("reports no error and no warning", async () => {
+      const result = await validateIntent(prebuilt, makeBalances(), { value: 5000n });
+
+      expect(result.errors).toEqual({});
+      expect(result.warnings).toEqual({});
+    });
+
+    it("spends exactly the fee", async () => {
+      const result = await validateIntent(prebuilt, makeBalances(), { value: 5000n });
+
+      expect(result).toMatchObject({ amount: 0n, estimatedFees: 5000n, totalSpent: 5000n });
+    });
+
+    it("still validates a transaction that carries no partner payload", async () => {
+      const result = await validateIntent(makeIntent({ recipient: "" }), makeBalances());
+
+      expect(result.errors.recipient).toBeInstanceOf(RecipientRequired);
+    });
+  });
+
   // Recipient lookups default to "a plain wallet address"; individual tests override them.
   beforeEach(() => {
     mockedGetMaybeTokenAccount.mockImplementation(async (address: string) =>
