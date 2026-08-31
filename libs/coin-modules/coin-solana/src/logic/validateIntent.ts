@@ -17,7 +17,6 @@ import {
   RecipientRequired,
 } from "@ledgerhq/ledger-wallet-framework/errors";
 import { formatAPIValue, formatAPIValueWithCode, solanaUnit } from "../common";
-import { NotEnoughGas, SolanaStakeAccountAmountTooLow } from "../errors";
 import {
   isEd25519Address,
   isSolanaStakingTransactionIntent,
@@ -26,6 +25,8 @@ import {
 } from "../logic";
 import { MAX_MEMO_LENGTH, validateMemo } from "./validateMemo";
 import {
+  NotEnoughGas,
+  SolanaStakeAccountAmountTooLow,
   SolanaAccountNotFunded,
   SolanaRecipientAccountNotFunded,
   SolanaTokenNonTransferable,
@@ -51,7 +52,6 @@ import {
   SolanaTokenRecipientIsSenderATA,
   SolanaValidatorRequired,
 } from "../errors";
-import { getAtaDataLengthForMint } from "../helpers/token";
 import type { TokenAccountInfo } from "../network/chain/account/token";
 import type { MemoTransferExt } from "../network/chain/account/tokenExtensions";
 import { UserInputType } from "../signer";
@@ -113,9 +113,16 @@ export async function validateIntent(
     await validateUnfundedRecipientAmount(api, amount, warnings, errors);
   }
 
-  checkFeeTooHigh(amount, estimatedFees, warnings);
+  // Native only: `amount` is in the token's own units on the other branch, and comparing it to
+  // lamports is meaningless -- it flagged every first transfer to a recipient, whose fee carries
+  // the new account's rent.
+  if (!isTokenTransfer) {
+    checkFeeTooHigh(amount, estimatedFees, warnings);
+  }
 
-  const totalSpent = isTokenTransfer ? amount : amount + estimatedFees;
+  const totalSpent = isTokenTransfer
+    ? tokenAmountLeavingTheAccount(amount, customFees)
+    : amount + estimatedFees;
 
   return {
     errors,
@@ -220,11 +227,8 @@ async function validateTokenTransfer(
     warnings.recipient = new SolanaRecipientAssociatedTokenAccountWillBeFunded();
   }
 
-  const ataRent = descriptor.shouldCreateAsAssociatedTokenAccount
-    ? BigInt(await api.getMinimumBalanceForRentExemption(getAtaDataLengthForMint(mintOrError)))
-    : 0n;
-
-  const requiredSol = ataRent + estimatedFees;
+  // `estimateFees` already folds the recipient's ATA rent into the fee, so it is counted here.
+  const requiredSol = estimatedFees;
   const native = balances.find(b => b.asset.type === "native");
   const spendable = (native?.value ?? 0n) - (native?.locked ?? 0n);
 
@@ -529,6 +533,19 @@ async function computeCreateAccountAmount(
     }
   }
   return intent.amount;
+}
+
+/**
+ * What a token transfer really costs the sender. A Token-2022 mint can levy a fee on top of the
+ * amount the recipient receives, and it is the sender's account that is debited for both --
+ * `estimateFees` computed it during `prepareTransaction`, so read it rather than asking again.
+ */
+function tokenAmountLeavingTheAccount(amount: bigint, customFees?: FeeEstimation): bigint {
+  const transferFee = customFees?.parameters?.transferFee as
+    | { feeBps?: number; transferAmountIncludingFee?: number }
+    | undefined;
+  if (!transferFee?.feeBps || transferFee.transferAmountIncludingFee === undefined) return amount;
+  return BigInt(transferFee.transferAmountIncludingFee);
 }
 
 function validateFeeCoverage(

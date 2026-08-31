@@ -34,13 +34,15 @@ async function getDeviceTransactionConfig({
       return fields;
     }
 
-    fields.push({ type: "amount", label: "Transfer tokens" });
     const transferFee = getTransactionTransferFee(transaction);
-    if (transferFee && transferFee.feeBps > 0) {
-      fields.push({ type: "solana.token.transferFee", label: "Transfer fee" });
-    }
-    fields.push({ type: "text", value: "Solana", label: "Network" });
-    fields.push({ type: "fees", label: "Max network fees" });
+    fields.push(
+      { type: "amount", label: "Transfer tokens" },
+      ...(transferFee && transferFee.feeBps > 0
+        ? ([{ type: "solana.token.transferFee", label: "Transfer fee" }] as const)
+        : []),
+      { type: "text", value: "Solana", label: "Network" },
+      { type: "fees", label: "Max network fees" },
+    );
     return fields;
   }
 
@@ -49,12 +51,14 @@ async function getDeviceTransactionConfig({
 
   switch (transaction.mode) {
     case "stake":
-      fields.push({ type: "amount", label: "Deposit" });
-      fields.push({
-        type: "address",
-        label: "New authority",
-        address: getMainAccount(account, parentAccount).freshAddress,
-      });
+      fields.push(
+        { type: "amount", label: "Deposit" },
+        {
+          type: "address",
+          label: "New authority",
+          address: getMainAccount(account, parentAccount).freshAddress,
+        },
+      );
       break;
     case "delegate":
       break;

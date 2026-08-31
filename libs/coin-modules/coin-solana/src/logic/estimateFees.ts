@@ -10,15 +10,24 @@ import BigNumber from "bignumber.js";
 import { isSolanaStakingTransactionIntent } from "../logic";
 import { ChainAPI } from "../network";
 import { PARSED_PROGRAMS } from "../network/chain/program/constants";
-import { getMaybeTokenMint, getStakeAccountAddressWithSeed } from "../network/chain/web3";
+import {
+  getMaybeTokenMint,
+  getStakeAccountAddressWithSeed,
+  type ParsedOnChainMintWithInfo,
+} from "../network/chain/web3";
 import type { TransferFeeConfigExt } from "../network/chain/account/tokenExtensions";
-import { transferFeeForIntent } from "../helpers/token";
-import type { SolanaTxData, TransferFeeCalculated } from "../types";
+import { getAtaDataLengthForMint, transferFeeForIntent } from "../helpers/token";
 import { UserInputType } from "../signer";
-import type { SolanaTokenProgram, TokenTransferCommand } from "../types";
-import { Transaction, TransactionModel } from "../types";
+import type {
+  SolanaTokenProgram,
+  SolanaTxData,
+  TokenTransferCommand,
+  Transaction,
+  TransactionModel,
+  TransferFeeCalculated,
+} from "../types";
 import { LEDGER_VALIDATOR_DEFAULT, assertUnreachable } from "../utils";
-import { buildVersionedTransaction } from "./craftTransaction";
+import { buildVersionedTransaction, resolveRecipientDescriptor } from "./craftTransaction";
 
 const DEFAULT_TX_FEE = 5000;
 
@@ -50,26 +59,68 @@ export async function estimateFees(
   }
 
   const kind = mapIntentToTxKind(intent);
-  const tokenProgram = resolveTokenProgramFromAsset(intent.asset);
-  const fee = await estimateTxFee(api, intent.sender, kind, tokenProgram);
-  const transferFee = await getMaybeTransferFee(api, intent);
+  const fee = await estimateTxFee(api, intent.sender, kind);
+  // The mint is the only authority on a token's transfer fee: `asset.type` comes from the CAL id,
+  // which spells every Solana token `spl` -- Token-2022 ones included.
+  const mint = await getMaybeMintOfIntent(api, intent);
+  const transferFee = mint && (await getMaybeTransferFee(api, intent, mint));
+  const ataRent = mint ? await recipientAtaRent(api, intent, mint) : 0n;
   return {
-    value: BigInt(fee),
+    value: BigInt(fee) + ataRent,
     ...(transferFee ? { parameters: { transferFee } } : {}),
   };
+}
+
+/**
+ * Rent for the recipient's associated token account, when the transfer has to create it. It is not
+ * a network fee, but it leaves the sender's account all the same, and the legacy bridge reported it
+ * here (`prepareTransaction.ts` returned `fee + assocAccRentExempt`) -- leaving it out understates
+ * the cost by roughly 2M lamports on the confirmation screen.
+ */
+async function recipientAtaRent(
+  api: ChainAPI,
+  intent: TransactionIntent<StringMemo | MemoNotSupported>,
+  mint: ParsedOnChainMintWithInfo,
+): Promise<bigint> {
+  if (!intent.recipient) return 0n;
+  const mintAddress = "assetReference" in intent.asset ? intent.asset.assetReference : undefined;
+  if (!mintAddress) return 0n;
+
+  const descriptor = await resolveRecipientDescriptor(
+    api,
+    intent.recipient,
+    mintAddress,
+    tokenProgramOfMint(mint),
+  );
+  if (!descriptor.shouldCreateAsAssociatedTokenAccount) return 0n;
+
+  return BigInt(await api.getMinimumBalanceForRentExemption(getAtaDataLengthForMint(mint)));
+}
+
+/** The mint an intent transfers, when it transfers a token at all. */
+async function getMaybeMintOfIntent(
+  api: ChainAPI,
+  intent: TransactionIntent<StringMemo | MemoNotSupported>,
+): Promise<ParsedOnChainMintWithInfo | undefined> {
+  const mintAddress = "assetReference" in intent.asset ? intent.asset.assetReference : undefined;
+  if (intent.asset.type === "native" || !mintAddress) return undefined;
+
+  const mint = await getMaybeTokenMint(mintAddress, api);
+  return !mint || mint instanceof Error ? undefined : mint;
+}
+
+function tokenProgramOfMint(mint: ParsedOnChainMintWithInfo): SolanaTokenProgram {
+  return mint.onChainAcc.data.program === PARSED_PROGRAMS.SPL_TOKEN_2022
+    ? PARSED_PROGRAMS.SPL_TOKEN_2022
+    : PARSED_PROGRAMS.SPL_TOKEN;
 }
 
 /** The fee a Token-2022 mint levies on transfers; it changes at epoch boundaries. */
 async function getMaybeTransferFee(
   api: ChainAPI,
   intent: TransactionIntent<StringMemo | MemoNotSupported>,
+  mint: ParsedOnChainMintWithInfo,
 ): Promise<TransferFeeCalculated | undefined> {
-  const mintAddress = "assetReference" in intent.asset ? intent.asset.assetReference : undefined;
-  if (intent.asset.type !== PARSED_PROGRAMS.SPL_TOKEN_2022 || !mintAddress) return undefined;
-
-  const mint = await getMaybeTokenMint(mintAddress, api);
-  if (!mint || mint instanceof Error) return undefined;
-
   const transferFeeConfigExt = mint.info.extensions?.find(
     tokenExt => tokenExt.extension === "transferFeeConfig",
   ) as TransferFeeConfigExt | undefined;
@@ -241,6 +292,9 @@ const createDummyStakeWithdrawTx = (address: string): Transaction => {
   };
 };
 
+// Callers must leave `tokenProgram` at its default: the Token-2022 branch resolves the mint on
+// chain, and this transaction carries a random one. It exists only to be measured, and the fee
+// Solana quotes is per signature, so the instruction variant does not change it anyway.
 const createDummyTokenTransferTx = (
   address: string,
   tokenProgram: SolanaTokenProgram = PARSED_PROGRAMS.SPL_TOKEN,
@@ -396,17 +450,4 @@ function mapIntentToTxKind(
     return "token.transfer";
   }
   return "transfer";
-}
-
-/**
- * Maps the intent asset type to the Solana token program identifier.
- * Token-2022 assets produce a different instruction variant
- * (transferCheckedWithFee) that affects compute-unit consumption.
- */
-function resolveTokenProgramFromAsset(
-  asset: TransactionIntent["asset"],
-): SolanaTokenProgram | undefined {
-  if (asset.type === "native") return undefined;
-  if (asset.type === PARSED_PROGRAMS.SPL_TOKEN_2022) return PARSED_PROGRAMS.SPL_TOKEN_2022;
-  return PARSED_PROGRAMS.SPL_TOKEN;
 }

@@ -463,7 +463,7 @@ function getTokenMintAddress(intent: TransactionIntent): string | undefined {
 
 // The recipient may be a token account rather than a wallet: deriving an associated account from
 // one throws `TokenOwnerOffCurveError`, an ATA being off the ed25519 curve.
-async function resolveRecipientDescriptor(
+export async function resolveRecipientDescriptor(
   api: ChainAPI,
   recipient: string,
   mintAddress: string,

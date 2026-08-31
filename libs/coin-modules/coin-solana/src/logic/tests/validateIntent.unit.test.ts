@@ -1046,6 +1046,16 @@ describe("validateIntent", () => {
       expect(result.amount).toBe(0n);
     });
 
+    // Lamports against token units is meaningless, and the recipient's ATA rent rides in the fee,
+    // so this fired on every first transfer to a given recipient.
+    it("never warns that fees are too high on a token transfer", async () => {
+      const result = await validateIntent(makeTokenIntent({ amount: 1n }), makeBalances(), {
+        value: 2_044_280n,
+      });
+
+      expect(result.warnings.feeTooHigh).toBeUndefined();
+    });
+
     describe("native SOL coverage for ATA rent + fee (via api)", () => {
       const FEE = 5000n;
       const CLASSIC_ATA_RENT = 2_039_280n;
@@ -1087,19 +1097,18 @@ describe("validateIntent", () => {
         mockedGetMaybeTokenMint.mockReset();
       });
 
-      it("packs NotEnoughGas when spendable equals classic ATA rent + fee but the Token-2022 ATA needs more SOL", async () => {
+      // `estimateFees` sizes the rent from the mint and folds it into the fee; this only checks
+      // that the fee it hands over is what the coverage check compares against.
+      it("packs NotEnoughGas when spendable cannot cover the fee the estimation reported", async () => {
         mockedGetMaybeTokenMint.mockResolvedValueOnce(
           makeMint("spl-token-2022", ["transferFeeConfig"]),
         );
-        const api = makeFakeApi({
-          ataExists: false,
-          rentLamports: Number(TOKEN_2022_ATA_RENT_WITH_TRANSFER_FEE),
-        });
+        const api = makeFakeApi({ ataExists: false, rentByDataLength: {} });
 
         const result = await validateIntent(
           makeTokenIntent({ amount: 1n }),
           balancesWithNative(2_935_160n),
-          { value: FEE },
+          { value: TOKEN_2022_ATA_RENT_WITH_TRANSFER_FEE + FEE },
           api,
         );
 
@@ -1112,36 +1121,30 @@ describe("validateIntent", () => {
         });
       });
 
-      it("does not pack NotEnoughGas when spendable covers mint-aware ATA rent + fee", async () => {
+      it("does not pack NotEnoughGas when spendable covers that fee", async () => {
         mockedGetMaybeTokenMint.mockResolvedValueOnce(
           makeMint("spl-token-2022", ["transferFeeConfig"]),
         );
-        const api = makeFakeApi({
-          ataExists: false,
-          rentLamports: Number(TOKEN_2022_ATA_RENT_WITH_TRANSFER_FEE),
-        });
+        const api = makeFakeApi({ ataExists: false, rentByDataLength: {} });
 
         const result = await validateIntent(
           makeTokenIntent({ amount: 1n }),
           balancesWithNative(TOKEN_2022_ATA_RENT_WITH_TRANSFER_FEE + FEE + 890_880n),
-          { value: FEE },
+          { value: TOKEN_2022_ATA_RENT_WITH_TRANSFER_FEE + FEE },
           api,
         );
 
         expect(result.errors.gasPrice).toBeUndefined();
       });
 
-      it("packs NotEnoughGas when classic SPL ATA needs to be created and spendable can't cover rent + fee", async () => {
+      it("packs NotEnoughGas when a classic SPL ATA has to be created and funds fall one short", async () => {
         mockedGetMaybeTokenMint.mockResolvedValueOnce(makeMint("spl-token"));
-        const api = makeFakeApi({
-          ataExists: false,
-          rentLamports: Number(CLASSIC_ATA_RENT),
-        });
+        const api = makeFakeApi({ ataExists: false, rentByDataLength: {} });
 
         const result = await validateIntent(
           makeTokenIntent({ amount: 1n }),
           balancesWithNative(CLASSIC_ATA_RENT + FEE - 1n + 890_880n),
-          { value: FEE },
+          { value: CLASSIC_ATA_RENT + FEE },
           api,
         );
 
