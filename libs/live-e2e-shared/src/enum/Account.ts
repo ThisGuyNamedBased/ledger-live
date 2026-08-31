@@ -25,9 +25,14 @@ export class Account {
    */
   get subAccountId(): string {
     const parentAddress = this.parentAccount ? this.parentAccount.address : this.address;
-    const base = `js:2:${this.currency.id}:${parentAddress}:${this.currency.id}Sub+`;
     const { tokenId } = this.currency;
-    return base + (tokenId ? safeEncodeTokenId(tokenId) : this.address);
+    const suffix = tokenId ? safeEncodeTokenId(tokenId) : this.address;
+    // `address` is only filled once the account is synced. Building the id anyway would embed the
+    // string "undefined" and surface much later as an account the app cannot find.
+    if (!parentAddress || !suffix) {
+      throw new Error(`Cannot build the sub-account id of ${this.accountName}: address is not set`);
+    }
+    return `js:2:${this.currency.id}:${parentAddress}:${this.currency.id}Sub+${suffix}`;
   }
 
   static readonly ADA_1 = new Account(Currency.ADA, "Cardano 1", 0, "1852'/1815'/0'/0/3");
