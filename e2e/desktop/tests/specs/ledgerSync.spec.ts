@@ -129,7 +129,7 @@ test.describe("Ledger Sync - rename account", () => {
   test.use(preSeededTrustchain([pushAccountsToTrustchain([ethAccount])]));
 
   test(
-    "[Live Hub][Ledger Sync] Renaming Account (Online)",
+    "[WXP][Ledger Sync] Renaming Account (Online)",
     {
       tag: deviceTagsWithoutLNS(),
       annotation: {
@@ -170,7 +170,7 @@ test.describe("Ledger Sync - delete account", () => {
   test.use(preSeededTrustchain([pushAccountsToTrustchain([ethAccount, secondEthAccount])]));
 
   test(
-    "[Live Hub][Ledger Sync] Deleting Account (Online)",
+    "[WXP][Ledger Sync] Deleting Account (Online)",
     {
       tag: deviceTagsWithoutLNS(),
       annotation: {
@@ -211,7 +211,7 @@ test.describe("Ledger Sync - delete instance", () => {
   test.use(preSeededTrustchain([addTrustchainMember(APP_INSTANCE_NAME)]));
 
   test(
-    "[Live Hub][Ledger Sync] Delete instance",
+    "[WXP][Ledger Sync] Delete instance",
     {
       tag: deviceTagsWithoutLNS(),
       annotation: {
@@ -249,7 +249,7 @@ test.describe("Ledger Sync - delete backup", () => {
   test.use(preSeededTrustchain([pushAccountsToTrustchain([ethAccount])]));
 
   test(
-    "[Live Hub][Ledger Sync] Delete backup",
+    "[WXP][Ledger Sync] Delete backup",
     {
       tag: deviceTagsWithoutLNS(),
       annotation: {
