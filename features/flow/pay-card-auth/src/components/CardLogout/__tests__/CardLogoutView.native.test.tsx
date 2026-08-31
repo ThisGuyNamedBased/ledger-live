@@ -42,7 +42,7 @@ describe("CardLogoutView (Native)", () => {
     const onInspectSession = jest.fn();
     renderCardLogoutView({ onInspectSession });
 
-    fireEvent.press(screen.getByLabelText("Card. Account: 3f2504e0-4f89-11d3-9a0c-0305e82c3301"));
+    fireEvent.press(screen.getByLabelText("Card"));
 
     expect(onInspectSession).toHaveBeenCalledTimes(1);
   });

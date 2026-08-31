@@ -43,7 +43,7 @@ export function CardLogoutView({
         <Pressable
           onPress={onInspectSession}
           accessibilityRole="button"
-          accessibilityLabel={`${title}. ${idLabel}: ${userId}`}
+          accessibilityLabel={title}
           style={PRESSABLE_STYLE}
         >
           {details}

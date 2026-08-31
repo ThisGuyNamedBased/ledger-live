@@ -58,6 +58,21 @@ describe("AuthSection (native)", () => {
     expect(screen.queryByText("at_a_very_long_access_token")).toBeNull();
   });
 
+  it("never shows a short token in full", () => {
+    render(
+      <AuthSection
+        auth={buildAuth({
+          session: { accessToken: "short", refreshToken: "x" },
+        })}
+      />,
+    );
+
+    expect(screen.getByText("shor…")).toBeTruthy();
+    expect(screen.getByText("…")).toBeTruthy();
+    expect(screen.queryByText("short")).toBeNull();
+    expect(screen.queryByText("x")).toBeNull();
+  });
+
   it("invites a login when nothing is stored", () => {
     render(<AuthSection auth={buildAuth({ session: null })} />);
 

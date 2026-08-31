@@ -77,8 +77,7 @@ async function answerTokenRequest(id: string, serial: number) {
       return rotatedSession(serial);
 
     case "200-bad-body":
-      // No `refresh_token`, so the wire schema rejects it. Nonterminal by policy: a body the client
-      // cannot read says nothing about whether the session is still good.
+      // No `refresh_token`, so the wire schema rejects it and the session ends.
       return HttpResponse.json({ access_token: `${MOCK_TOKEN_PREFIX}${serial}`, expires_in: 3600 });
 
     case "400":

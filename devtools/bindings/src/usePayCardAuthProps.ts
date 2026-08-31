@@ -36,7 +36,7 @@ type CardQuery = {
     options: { forceRefetch: boolean; subscribe: boolean },
   ) => (dispatch: unknown) => Promise<unknown>;
 };
-type CardEndpoints = { endpoints: { getUser: CardQuery; getCardStatus: CardQuery } };
+type CardEndpoints = { endpoints: { getUser?: CardQuery; getCardStatus?: CardQuery } };
 
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 const cardEndpoints = cardApi as unknown as CardEndpoints;
@@ -46,7 +46,8 @@ const VISIBLE_TOKEN_CHARS = 9;
 /** Enough of a token to see it change, never the whole credential. */
 function mask(token: string | null): string {
   if (!token) return "null";
-  return token.length <= VISIBLE_TOKEN_CHARS ? token : `${token.slice(0, VISIBLE_TOKEN_CHARS)}…`;
+  const visibleLength = Math.min(VISIBLE_TOKEN_CHARS, Math.max(0, token.length - 1));
+  return `${token.slice(0, visibleLength)}…`;
 }
 
 /**
@@ -69,6 +70,7 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
   const [busy, setBusy] = useState(false);
   const [mockTick, setMockTick] = useState(0);
   const mounted = useRef(true);
+  const resultId = useRef(0);
 
   useEffect(() => {
     mounted.current = true;
@@ -96,28 +98,34 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     }
   }, []);
 
+  const nextResultId = useCallback(() => {
+    resultId.current += 1;
+    return resultId.current;
+  }, []);
+
   /** Runs one action, reports what it answered, and re-reads the session it may have changed. */
   const run = useCallback(
     (label: string, action: () => Promise<string>) => {
       setBusy(true);
-      action()
-        .then(
-          outcome => ({ message: `${label} → ${outcome}`, failed: false }),
-          error => ({
+      void (async () => {
+        let outcome: Omit<ActionResult, "id">;
+        try {
+          outcome = { message: `${label} → ${await action()}`, failed: false };
+        } catch (error) {
+          outcome = {
             message: `${label} failed: ${error instanceof Error ? error.message : String(error)}`,
             failed: true,
-          }),
-        )
-        .then(async outcome => {
-          await readSession();
-          if (!mounted.current) return;
-          // A fresh id every time, so the panel re-opens even when the message repeats.
-          setLastResult({ id: Date.now(), ...outcome });
-          setMockTick(tick => tick + 1);
-          setBusy(false);
-        });
+          };
+        }
+
+        await readSession();
+        if (!mounted.current) return;
+        setLastResult({ id: nextResultId(), ...outcome });
+        setMockTick(tick => tick + 1);
+        setBusy(false);
+      })();
     },
-    [readSession],
+    [nextResultId, readSession],
   );
 
   useEffect(() => {
@@ -130,14 +138,10 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
 
   const renewNow = useCallback(() => {
     run("renew", async () => {
-      // The session id names the session this renewal is for, exactly as the base query sends it.
-      const { sessionId } = await readCardSession();
-      const result = await refreshCardSession(sessionId);
+      const { sessionId, token } = await readCardSession();
+      if (!token) return "no session";
+      const result = await refreshCardSession(sessionId, token);
       if (result.kind === "refreshed") return `refreshed ${mask(result.accessToken)}`;
-      // Rare now: a renewal that ran and failed ends the session, so this names an app that never
-      // installed one.
-      if (result.kind === "unavailable") return `unavailable (${result.reason})`;
-      // "session-ended", or "session-replaced" when a login or a logout got in first.
       return result.kind;
     });
   }, [run]);
@@ -185,11 +189,11 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     (callers: number) => {
       run(`burst ${callers}`, async () => {
         const before = readMockState()?.refreshCount;
-        // One session id for every caller, which is what several screens hitting one expired token do.
-        const { sessionId } = await readCardSession();
+        const { sessionId, token } = await readCardSession();
+        if (!token) return "no session";
         // Renewals, not reads: a read never renews now, so only this measures single flight.
         const results = await Promise.all(
-          Array.from({ length: callers }, () => refreshCardSession(sessionId)),
+          Array.from({ length: callers }, () => refreshCardSession(sessionId, token)),
         );
         const after = readMockState()?.refreshCount;
         const renewals = before === undefined || after === undefined ? "?" : after - before;
@@ -204,9 +208,12 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
 
   const fetchUser = useCallback(() => {
     run("get user", async () => {
+      const getUser = cardEndpoints.endpoints.getUser;
+      if (!getUser) return "unavailable (endpoint not registered)";
+
       const result = (await dispatch(
         // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-        cardEndpoints.endpoints.getUser.initiate(undefined, {
+        getUser.initiate(undefined, {
           forceRefetch: true,
           subscribe: false,
         }) as never,
@@ -231,8 +238,12 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
   const armUnauthorized = useCallback(() => {
     const state = readMockState();
     if (state) state.userUnauthorizedOnce = true;
-    setLastResult({ id: Date.now(), message: "the next user call answers 401", failed: false });
-  }, []);
+    setLastResult({
+      id: nextResultId(),
+      message: "the next user call answers 401",
+      failed: false,
+    });
+  }, [nextResultId]);
 
   // The mock object is mutated in place, so the tick is what makes a change visible.
   void mockTick;

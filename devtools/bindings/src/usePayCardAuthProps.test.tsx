@@ -117,6 +117,23 @@ describe("usePayCardAuthProps", () => {
     act(() => result.current.readTokens());
     await waitFor(() => expect(result.current.lastResult).not.toBe(first));
     expect(result.current.lastResult?.message).toBe(first?.message);
+    expect(result.current.lastResult?.id).not.toBe(first?.id);
+  });
+
+  it("recovers when an action throws before returning a promise", async () => {
+    const clear = jest.spyOn(cardSession, "clear").mockImplementationOnce(() => {
+      throw new Error("clear failed");
+    });
+    const { result } = renderHook(() => usePayCardAuthProps(), { wrapper: withStore(store) });
+    await waitFor(() => expect(result.current.busy).toBe(false));
+
+    act(() => result.current.clearSession());
+
+    await waitFor(() =>
+      expect(result.current.lastResult?.message).toBe("clear failed: clear failed"),
+    );
+    expect(result.current.busy).toBe(false);
+    clear.mockRestore();
   });
 
   it("clears the session", async () => {

@@ -9,7 +9,8 @@ const VISIBLE_TOKEN_CHARS = 9;
 
 /** Enough of a token to see it change, never the whole credential. */
 function mask(token: string): string {
-  return token.length <= VISIBLE_TOKEN_CHARS ? token : `${token.slice(0, VISIBLE_TOKEN_CHARS)}…`;
+  const visibleLength = Math.min(VISIBLE_TOKEN_CHARS, Math.max(0, token.length - 1));
+  return `${token.slice(0, visibleLength)}…`;
 }
 
 /** Muted label, readable value. Text with no colour is invisible on the panel's background. */

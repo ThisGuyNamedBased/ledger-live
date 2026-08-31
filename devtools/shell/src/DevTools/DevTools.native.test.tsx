@@ -42,6 +42,12 @@ describe("DevTools (native) — navigation", () => {
     expect(screen.getByRole("button", { name: "Debugging" })).toBeOnTheScreen();
   });
 
+  it("falls back to the catalogue for an unknown initial tool", () => {
+    renderWithNavigation(<DevTools config={config} initialToolId="unknown" />);
+
+    expect(screen.getByRole("button", { name: "Configuration" })).toBeOnTheScreen();
+  });
+
   it("drills into a category to reveal its tools", async () => {
     const user = userEvent.setup();
     renderWithNavigation(<DevTools config={config} />);

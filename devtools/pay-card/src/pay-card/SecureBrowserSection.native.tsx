@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Box, Button, Text, TextInput } from "@ledgerhq/lumen-ui-rnative";
 import type { PayCardOpenSecureBrowser } from "../types";
 import { Section } from "../components/Section/Section";
@@ -15,6 +15,14 @@ export function SecureBrowserSection({ open }: { readonly open: PayCardOpenSecur
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<string | null>(null);
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
   const target = url.trim();
 
@@ -27,6 +35,7 @@ export function SecureBrowserSection({ open }: { readonly open: PayCardOpenSecur
         error => `failed: ${error instanceof Error ? error.message : String(error)}`,
       )
       .then(result => {
+        if (!mounted.current) return;
         setOutcome(result);
         setBusy(false);
       });

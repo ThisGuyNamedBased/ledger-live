@@ -25,6 +25,9 @@ const Stack = createNativeStackNavigator<DevToolsParamList>();
 
 export function DevTools({ config = [], footer, screenOptions, initialToolId }: DevToolsProps) {
   const { shell } = useDevToolsViewModel({ config, footer });
+  const validInitialToolId = config.some(tool => tool.id === initialToolId)
+    ? initialToolId
+    : undefined;
 
   return (
     <BottomSheetModalProvider>
@@ -32,14 +35,14 @@ export function DevTools({ config = [], footer, screenOptions, initialToolId }: 
         <DevToolsShellProvider value={shell}>
           <Stack.Navigator
             screenOptions={screenOptions}
-            initialRouteName={initialToolId ? "tool" : "categories"}
+            initialRouteName={validInitialToolId ? "tool" : "categories"}
           >
             <Stack.Screen name="categories" component={CategoriesScreen} />
             <Stack.Screen name="tools" component={ToolsScreen} />
             <Stack.Screen
               name="tool"
               component={ToolScreen}
-              initialParams={initialToolId ? { toolId: initialToolId } : undefined}
+              initialParams={validInitialToolId ? { toolId: validInitialToolId } : undefined}
             />
           </Stack.Navigator>
         </DevToolsShellProvider>
