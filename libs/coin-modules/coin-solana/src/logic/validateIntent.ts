@@ -62,6 +62,7 @@ import {
   getMaybeVoteAccount,
   getStakeAccountMinimumBalanceForRentExemption,
 } from "../network/chain/web3";
+import { estimateTxFee } from "./estimateFees";
 import type { SolanaTokenAccount, SolanaTokenProgram, TokenRecipientDescriptor } from "../types";
 import type { ChainAPI } from "../network";
 
@@ -257,7 +258,7 @@ async function validateStakingIntent(
 
   const nativeBalance = balances.find(b => b.asset.type === "native");
   const available = (nativeBalance?.value ?? 0n) - (nativeBalance?.locked ?? 0n);
-  const nativeValue = nativeBalance?.value ?? 0n;
+  const liquid = liquidBalance(balances);
 
   let amount: bigint;
   let totalSpent: bigint;
@@ -273,19 +274,19 @@ async function validateStakingIntent(
       await validateDelegate(api, intent, balances, errors);
       amount = 0n;
       totalSpent = estimatedFees;
-      validateFeeCoverage(estimatedFees, available, errors);
+      validateFeeCoverage(estimatedFees, liquid, errors);
       break;
     case "stake.undelegate":
       validateUndelegate(intent, balances, errors);
       amount = 0n;
       totalSpent = estimatedFees;
-      validateFeeCoverage(estimatedFees, nativeValue, errors);
+      validateFeeCoverage(estimatedFees, liquid, errors);
       break;
     case "stake.withdraw":
       await validateWithdraw(api, intent, balances, errors);
       amount = clampPositive(intent.amount);
       totalSpent = estimatedFees;
-      validateFeeCoverage(estimatedFees, nativeValue, errors);
+      validateFeeCoverage(estimatedFees, liquid, errors);
       break;
     default:
       amount = intent.amount;
@@ -504,8 +505,15 @@ async function computeCreateAccountAmount(
     }
   };
 
+  // Undoing a delegation costs two more transactions. The account's `unstakeReserve` only covers
+  // the stake accounts it already has (`computeUnstakeReserve` returns 0 when there are none), so
+  // the one being created needs its own reserve or a first-time staker is left unable to unstake.
+  const unstakeReserve = await fetchUnstakeReserve(api, intent.sender);
+
   if (intent.useAllAmount) {
-    const allAmount = clampPositive(available - estimatedFees);
+    // The rent exemption is already inside this amount: `craftCreateStakeAccountFromIntent`
+    // subtracts it to get the delegated part.
+    const allAmount = clampPositive(available - estimatedFees - unstakeReserve);
     if (!errors.recipient && !errors.amount && allAmount > 0n) {
       const [stakeMinimumDelegation, stakeAccRentExempt] = await Promise.all([
         fetchStakeMinimumDelegation(),
@@ -524,7 +532,11 @@ async function computeCreateAccountAmount(
   }
   if (intent.amount <= 0n) {
     errors.amount = new AmountRequired();
-  } else if (intent.amount + estimatedFees > available) {
+  } else if (
+    // A typed amount is the delegated part; the stake account's rent sits on top of it.
+    intent.amount + estimatedFees + unstakeReserve + ((await fetchStakeAccountRentExempt()) ?? 0n) >
+    available
+  ) {
     errors.amount = new NotEnoughBalance();
   } else if (!errors.recipient) {
     const stakeMinimumDelegation = await fetchStakeMinimumDelegation();
@@ -533,6 +545,19 @@ async function computeCreateAccountAmount(
     }
   }
   return intent.amount;
+}
+
+/** Fees the future undelegate and withdraw of a freshly created stake account will cost. */
+async function fetchUnstakeReserve(api: ChainAPI, sender: string): Promise<bigint> {
+  try {
+    const [undelegateFee, withdrawFee] = await Promise.all([
+      estimateTxFee(api, sender, "stake.undelegate"),
+      estimateTxFee(api, sender, "stake.withdraw"),
+    ]);
+    return BigInt(undelegateFee + withdrawFee);
+  } catch {
+    return 0n;
+  }
 }
 
 /**
@@ -548,13 +573,27 @@ function tokenAmountLeavingTheAccount(amount: bigint, customFees?: FeeEstimation
   return BigInt(transferFee.transferAmountIncludingFee);
 }
 
+/**
+ * Lamports the account actually holds, stake accounts excluded. `value` counts them in and `locked`
+ * takes out the reserve that exists to pay these very fees, so neither answers "can this account
+ * afford the fee". The account's rent exemption is not deducted -- it is not exposed here, and
+ * erring on the permissive side only risks a chain-side failure, where erring the other way would
+ * block a legitimate undelegate.
+ */
+function liquidBalance(balances: Balance[]): bigint {
+  const native = balances.find(b => b.asset.type === "native");
+  const staked = balances.reduce((sum, b) => (b.stake ? sum + b.value : sum), 0n);
+  return (native?.value ?? 0n) - staked;
+}
+
+/** Keyed on `fee`, which is what the staking screens render (`StepValidator`, `StepAmount`). */
 function validateFeeCoverage(
   estimatedFees: bigint,
   balance: bigint,
   errors: Record<string, Error>,
 ): void {
   if (estimatedFees > balance) {
-    errors.amount = new NotEnoughBalance();
+    errors.fee = new NotEnoughBalance();
   }
 }
 

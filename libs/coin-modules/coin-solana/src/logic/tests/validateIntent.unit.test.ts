@@ -48,6 +48,12 @@ const RECIPIENT = "7VHUFJHWu2CuExkJcJrzhQPJ2oygupTWkL2A2For4BmE";
 
 const STAKE_ACC_RENT_EXEMPT = 2_282_880;
 
+// Undelegate + withdraw both cost this; the reserve a fresh stake account needs is twice it.
+const UNSTAKE_TX_FEE = 5000;
+jest.mock("../estimateFees", () => ({
+  estimateTxFee: jest.fn().mockResolvedValue(5000),
+}));
+
 jest.mock("../../network/chain/web3", () => ({
   __esModule: true,
   getMaybeTokenMint: jest.fn(),
@@ -324,6 +330,32 @@ describe("validateIntent", () => {
         expect(result.totalSpent).toBe(1_000_000_000n + 5000n);
       });
 
+      // Legacy set aside the stake account's rent plus the fees of the eventual undelegate and
+      // withdraw (`estimateMaxSpendable.ts`), so the account is never left unable to unstake.
+      it("reserves the future undelegate and withdraw fees when sending all", async () => {
+        const available = 5_000_000_000n - 890_880n;
+
+        const result = await validateIntent(
+          makeStakeIntent({ useAllAmount: true }),
+          makeBalances(),
+          { value: 5000n },
+        );
+
+        expect(result.amount).toBe(available - 5000n - BigInt(2 * UNSTAKE_TX_FEE));
+      });
+
+      it("counts the stake account rent and that reserve against a typed amount", async () => {
+        const available = 5_000_000_000n - 890_880n;
+        // Just affordable without the reserve and the rent, short once both are counted.
+        const amount = available - 5000n - 1n;
+
+        const result = await validateIntent(makeStakeIntent({ amount }), makeBalances(), {
+          value: 5000n,
+        });
+
+        expect(result.errors.amount).toBeInstanceOf(NotEnoughBalance);
+      });
+
       it("should error when recipient is missing", async () => {
         const result = await validateIntent(makeStakeIntent({ recipient: "" }), makeBalances(), {
           value: 5000n,
@@ -368,7 +400,7 @@ describe("validateIntent", () => {
         );
 
         expect(result.errors).toEqual({});
-        expect(result.amount).toBe(2_000_000_000n - 890_880n - 5000n);
+        expect(result.amount).toBe(2_000_000_000n - 890_880n - 5000n - BigInt(2 * UNSTAKE_TX_FEE));
       });
 
       it("should clamp amount to 0 when useAllAmount and balance is insufficient", async () => {
@@ -547,14 +579,15 @@ describe("validateIntent", () => {
         expect(result.totalSpent).toBe(5000n);
       });
 
-      it("should error when fees exceed available balance (value - locked)", async () => {
+      it("should error when fees exceed the liquid balance", async () => {
         const result = await validateIntent(
           makeDelegateIntent(),
           makeStakeBalances({ state: "inactive" }, 10_000n),
           { value: 5000n },
         );
 
-        expect(result.errors.amount).toBeInstanceOf(NotEnoughBalance);
+        // Keyed on `fee`: that is what the staking screens render.
+        expect(result.errors.fee).toBeInstanceOf(NotEnoughBalance);
       });
     });
 
@@ -585,12 +618,22 @@ describe("validateIntent", () => {
         expect(result.totalSpent).toBe(5000n);
       });
 
-      it("should error when fees exceed total native value (not available)", async () => {
+      it("should error when fees exceed the liquid balance", async () => {
         const result = await validateIntent(makeUndelegateIntent(), makeStakeBalances({}, 3000n), {
           value: 5000n,
         });
 
-        expect(result.errors.amount).toBeInstanceOf(NotEnoughBalance);
+        expect(result.errors.fee).toBeInstanceOf(NotEnoughBalance);
+      });
+
+      // `getBalance` reports the native value as liquid + staked, so comparing the fee against it
+      // could never fail: any stake account dwarfs a 5000-lamport fee.
+      it("does not let staked lamports pay the fee", async () => {
+        const balances = makeStakeBalances({}, 1_000_003_000n);
+
+        const result = await validateIntent(makeUndelegateIntent(), balances, { value: 5000n });
+
+        expect(result.errors.fee).toBeInstanceOf(NotEnoughBalance);
       });
     });
 
@@ -768,12 +811,12 @@ describe("validateIntent", () => {
         expect(result.amount).toBe(0n);
       });
 
-      it("should error when fees exceed total native value", async () => {
+      it("should error when fees exceed the liquid balance", async () => {
         const result = await validateIntent(makeWithdrawIntent(), makeBalances(3000n, 0n), {
           value: 5000n,
         });
 
-        expect(result.errors.amount).toBeInstanceOf(NotEnoughBalance);
+        expect(result.errors.fee).toBeInstanceOf(NotEnoughBalance);
       });
 
       it("keeps the returned amount clamped to 0 even when errors are set", async () => {
@@ -783,7 +826,7 @@ describe("validateIntent", () => {
           { value: 5000n },
         );
 
-        expect(result.errors.amount).toBeInstanceOf(NotEnoughBalance);
+        expect(result.errors.fee).toBeInstanceOf(NotEnoughBalance);
         expect(result.amount).toBe(0n);
         expect(result.totalSpent).toBe(5000n);
       });
