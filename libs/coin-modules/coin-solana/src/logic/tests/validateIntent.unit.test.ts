@@ -626,6 +626,32 @@ describe("validateIntent", () => {
         expect(result.errors.fee).toBeInstanceOf(NotEnoughBalance);
       });
 
+      // A fully deactivated stake delegates nothing, so `stake.amount` is 0 while the account still
+      // holds its lamports. Subtracting the principal rather than the position's value would count
+      // the whole stake account as liquid.
+      it("does not let a deactivated stake's lamports pay the fee", async () => {
+        const staked = 10_000_000_000n;
+        const balances: Balance[] = [
+          { value: staked, asset: { type: "native" }, locked: staked },
+          {
+            value: staked,
+            asset: { type: "native" },
+            stake: {
+              uid: RECIPIENT,
+              address: RECIPIENT,
+              state: "inactive",
+              asset: { type: "native" },
+              amount: 0n,
+              actions: [],
+            },
+          },
+        ];
+
+        const result = await validateIntent(makeUndelegateIntent(), balances, { value: 5000n });
+
+        expect(result.errors.fee).toBeInstanceOf(NotEnoughBalance);
+      });
+
       // `getBalance` reports the native value as liquid + staked, so comparing the fee against it
       // could never fail: any stake account dwarfs a 5000-lamport fee.
       it("does not let staked lamports pay the fee", async () => {

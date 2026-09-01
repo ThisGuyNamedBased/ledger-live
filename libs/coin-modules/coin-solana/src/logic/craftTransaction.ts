@@ -32,9 +32,8 @@ import {
   buildStakeWithdrawInstructions,
   buildStakeSplitInstructions,
   findAssociatedTokenAccountPubkey,
-  getMaybeMintAccount,
   getMaybeTokenAccount,
-  getMaybeTokenMintProgram,
+  getMaybeTokenMint,
   getStakeAccountAddressWithSeed,
   getStakeAccountMinimumBalanceForRentExemption,
 } from "../network/chain/web3";
@@ -45,6 +44,7 @@ import type {
   StakeCreateAccountCommand,
   StakeDelegateCommand,
   StakeUndelegateCommand,
+  StakeSplitCommand,
   StakeWithdrawCommand,
   TokenTransferCommand,
   TransferCommand,
@@ -91,6 +91,22 @@ export async function craftTransaction(
 
   if (intent.type === "stake.undelegate") {
     return craftUndelegateFromIntent(api, intent as StakingTransactionIntent, customFees);
+  }
+
+  if (intent.type === "stake.split") {
+    return craftSplitStakeFromIntent(
+      api,
+      intent as StakingTransactionIntent<StringMemo | MemoNotSupported>,
+      customFees,
+    );
+  }
+
+  if (
+    intent.type === "token.createATA" ||
+    intent.type === "token.approve" ||
+    intent.type === "token.revoke"
+  ) {
+    return craftTokenAuthorityFromIntent(api, intent, customFees);
   }
 
   return craftSendTransactionFromIntent(api, intent, customFees);
@@ -218,9 +234,12 @@ async function craftDelegateFromIntent(
   customFees?: FeeEstimation,
 ): Promise<CraftedTransaction> {
   const valAddress = "valAddress" in intent ? intent.valAddress : undefined;
-  const stakeAccAddr = "memo" in intent ? intent.memo.value : intent.recipient;
+  // The framework always sets a memo, `{ type: "none" }` at worst, so a `"memo" in intent` guard
+  // would never fall through -- read the value and let an absent one be the error.
+  const memo = "memo" in intent ? intent.memo : undefined;
+  const stakeAccAddr = memo?.type === "string" ? memo.value : undefined;
   if (!stakeAccAddr) {
-    throw new Error("stake.delegate requires a stake account address (via recipient)");
+    throw new Error("stake.delegate requires a stake account address (via the memo)");
   }
   const voteAccAddr = valAddress ?? intent.recipient;
   const command: StakeDelegateCommand = {
@@ -242,6 +261,91 @@ async function craftUndelegateFromIntent(
     authorizedAccAddr: intent.sender,
     stakeAccAddr: intent.recipient,
   };
+  return craftCommandToTransaction(api, command, intent.sender, customFees);
+}
+
+/**
+ * Splitting a stake account moves part of it into a new one, derived from a fresh seed here the
+ * same way `stake.createAccount` derives its own.
+ */
+async function craftSplitStakeFromIntent(
+  api: ChainAPI,
+  intent: StakingTransactionIntent<StringMemo | MemoNotSupported>,
+  customFees?: FeeEstimation,
+): Promise<CraftedTransaction> {
+  const memo = "memo" in intent ? intent.memo : undefined;
+  const stakeAccAddr = memo?.type === "string" ? memo.value : intent.recipient;
+  if (!stakeAccAddr) {
+    throw new Error("stake.split requires a stake account address");
+  }
+
+  const seed = createStakeAccountSeed();
+  const command: StakeSplitCommand = {
+    kind: "stake.split",
+    authorizedAccAddr: intent.sender,
+    stakeAccAddr,
+    amount: Number(intent.amount),
+    seed,
+    splitStakeAccAddr: await getStakeAccountAddressWithSeed({ fromAddress: intent.sender, seed }),
+  };
+  return craftCommandToTransaction(api, command, intent.sender, customFees);
+}
+
+/**
+ * Opening a token account, delegating spending authority over one, and taking that authority back.
+ * Only a live app reaches these; no first-party screen builds them. The addresses the instructions
+ * need are derived from the chain, exactly as the legacy `deriveCommandDescriptor` did -- the wallet
+ * API carries only the token and the delegate.
+ */
+async function craftTokenAuthorityFromIntent(
+  api: ChainAPI,
+  intent: TransactionIntent<StringMemo | MemoNotSupported>,
+  customFees?: FeeEstimation,
+): Promise<CraftedTransaction> {
+  const mintAddress = getTokenMintAddress(intent);
+  if (!mintAddress) {
+    throw new Error(`${intent.type} requires a token asset`);
+  }
+
+  const mint = await getMaybeTokenMint(mintAddress, api);
+  if (!mint || mint instanceof Error) {
+    throw new Error(`Cannot resolve mint account for ${mintAddress}`);
+  }
+  const tokenProgram: SolanaTokenProgram =
+    mint.onChainAcc.data.program === PARSED_PROGRAMS.SPL_TOKEN_2022
+      ? PARSED_PROGRAMS.SPL_TOKEN_2022
+      : PARSED_PROGRAMS.SPL_TOKEN;
+
+  const ownerAta = (
+    await findAssociatedTokenAccountPubkey(intent.sender, mintAddress, tokenProgram)
+  ).toBase58();
+
+  const command: Command =
+    intent.type === "token.createATA"
+      ? {
+          kind: "token.createATA",
+          owner: intent.sender,
+          mint: mintAddress,
+          associatedTokenAccountAddress: ownerAta,
+        }
+      : intent.type === "token.revoke"
+        ? { kind: "token.revoke", account: ownerAta, owner: intent.sender, tokenProgram }
+        : {
+            kind: "token.approve",
+            account: ownerAta,
+            mintAddress,
+            recipientDescriptor: await resolveRecipientDescriptor(
+              api,
+              intent.recipient,
+              mintAddress,
+              tokenProgram,
+            ),
+            owner: intent.sender,
+            amount: Number(intent.amount),
+            decimals: mint.info.decimals,
+            tokenProgram,
+          };
+
   return craftCommandToTransaction(api, command, intent.sender, customFees);
 }
 
@@ -499,16 +603,18 @@ async function resolveTokenTransferCommand(
   mintAddress: string,
   memo?: string,
 ): Promise<TokenTransferCommand> {
-  const [mintAccount, mintProgram] = await Promise.all([
-    getMaybeMintAccount(mintAddress, api),
-    getMaybeTokenMintProgram(mintAddress, api),
-  ]);
-  if (!mintAccount || mintAccount instanceof Error) {
+  // One read, not two: `getMaybeTokenMint` carries both the parsed mint and the program that owns
+  // it, where `getMaybeMintAccount` and `getMaybeTokenMintProgram` each fetched the same account.
+  const mint = await getMaybeTokenMint(mintAddress, api);
+  if (!mint || mint instanceof Error) {
     throw new Error(`Cannot resolve mint account for ${mintAddress}`);
   }
 
+  const mintAccount = mint.info;
   const resolvedProgram: SolanaTokenProgram =
-    mintProgram && !(mintProgram instanceof Error) ? mintProgram : "spl-token";
+    mint.onChainAcc.data.program === PARSED_PROGRAMS.SPL_TOKEN_2022
+      ? PARSED_PROGRAMS.SPL_TOKEN_2022
+      : PARSED_PROGRAMS.SPL_TOKEN;
   const mintDecimals = mintAccount.decimals;
 
   const senderAta = await findAssociatedTokenAccountPubkey(

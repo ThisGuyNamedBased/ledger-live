@@ -77,17 +77,23 @@ export async function validateIntent(
 
   const estimatedFees = customFees?.value ?? 0n;
 
-  // A transaction a partner already built describes itself; the intent's recipient and amount are
-  // placeholders, so validating them would reject a perfectly good payload. Legacy did the same:
-  // its `raw` command carried empty errors and warnings (`rawTransaction.ts:buildRawTransaction`).
+  // A partner-built transaction describes itself; the intent's recipient and amount are
+  // placeholders, so validating them would reject a perfectly good payload. Legacy did the same.
   if (transactionIntent.data?.type === "solana") {
     return { errors, warnings, estimatedFees, amount: 0n, totalSpent: estimatedFees };
   }
 
   const isTokenTransfer = transactionIntent.asset.type !== "native";
 
-  if (isSolanaStakingTransactionIntent(transactionIntent)) {
+  if (
+    isSolanaStakingTransactionIntent(transactionIntent) ||
+    transactionIntent.type === "stake.split"
+  ) {
     return validateStakingIntent(api, transactionIntent, balances, estimatedFees);
+  }
+
+  if (transactionIntent.type.startsWith("token.") && transactionIntent.type !== "token.transfer") {
+    return validateTokenAuthorityIntent(transactionIntent, balances, estimatedFees);
   }
 
   await validateRecipientCommon(
@@ -174,13 +180,8 @@ function validateTransactionMemo(
 }
 
 /**
- * Everything an SPL transfer needs the chain for, in one pass: where the transfer lands, whether
- * that destination accepts it, and whether the sender holds enough native SOL for the fee and for
- * the recipient's associated token account when it has to be created.
- *
- * The mint and the derived addresses are fetched once and shared: the mint-aware ATA size matters
- * for Token-2022 mints with extensions, whose account is larger than the classic 165-byte one and
- * rents more SOL on-chain.
+ * Everything an SPL transfer needs the chain for, in one pass: where it lands, whether that
+ * destination accepts it, and whether the sender holds enough SOL for the fee.
  */
 async function validateTokenTransfer(
   api: ChainAPI,
@@ -245,6 +246,44 @@ async function validateTokenTransfer(
   }
 }
 
+/**
+ * The three token-authority commands, which only a live app submits. Opening or closing an account
+ * moves no token, so only the native fee is at stake; approving one also names a delegate and an
+ * amount.
+ */
+function validateTokenAuthorityIntent(
+  intent: TransactionIntent<StringMemo | MemoNotSupported>,
+  balances: Balance[],
+  estimatedFees: bigint,
+): TransactionValidation {
+  const errors: Record<string, Error> = {};
+  const warnings: Record<string, Error> = {};
+
+  if (intent.type === "token.approve") {
+    if (!intent.recipient) {
+      errors.recipient = new RecipientRequired();
+    } else if (!isValidBase58Address(intent.recipient)) {
+      errors.recipient = new InvalidAddress();
+    } else if (intent.recipient === intent.sender) {
+      errors.recipient = new InvalidAddressBecauseDestinationIsAlsoSource();
+    }
+    if (intent.amount <= 0n) {
+      errors.amount = new AmountRequired();
+    }
+  }
+
+  validateFeeCoverage(estimatedFees, liquidBalance(balances), errors);
+
+  return {
+    errors,
+    warnings,
+    estimatedFees,
+    // No token leaves the account: approving grants an allowance, it does not spend it.
+    amount: 0n,
+    totalSpent: estimatedFees,
+  };
+}
+
 async function validateStakingIntent(
   api: ChainAPI,
   intent: TransactionIntent,
@@ -288,6 +327,13 @@ async function validateStakingIntent(
       totalSpent = estimatedFees;
       validateFeeCoverage(estimatedFees, liquid, errors);
       break;
+    case "stake.split":
+      // Splitting moves lamports between two accounts the wallet owns; only the fee leaves it.
+      resolveStakeAccount(intentMemo(intent) || intent.recipient, balances, errors);
+      amount = clampPositive(intent.amount);
+      totalSpent = estimatedFees;
+      validateFeeCoverage(estimatedFees, liquid, errors);
+      break;
     default:
       amount = intent.amount;
       totalSpent = estimatedFees;
@@ -303,11 +349,7 @@ async function validateStakingIntent(
   };
 }
 
-/**
- * The stake account an intent acts on, as `getBalance` reported it. Replaces the legacy bridge's
- * `findSolanaStakingPosition`, which read `account.stakingResources` — a shape `validateIntent`
- * does not receive.
- */
+/** The stake account an intent acts on, as `getBalance` reported it. */
 function findStakeBalance(balances: Balance[], stakeAccAddr: string): Stake | undefined {
   return balances.find(b => b.stake?.uid === stakeAccAddr)?.stake;
 }
@@ -505,9 +547,8 @@ async function computeCreateAccountAmount(
     }
   };
 
-  // Undoing a delegation costs two more transactions. The account's `unstakeReserve` only covers
-  // the stake accounts it already has (`computeUnstakeReserve` returns 0 when there are none), so
-  // the one being created needs its own reserve or a first-time staker is left unable to unstake.
+  // `unstakeReserve` only covers the stake accounts the account already has (it is 0 when there
+  // are none), so the one being created needs its own or a first-time staker cannot unstake.
   const unstakeReserve = await fetchUnstakeReserve(api, intent.sender);
 
   if (intent.useAllAmount) {
@@ -561,9 +602,8 @@ async function fetchUnstakeReserve(api: ChainAPI, sender: string): Promise<bigin
 }
 
 /**
- * What a token transfer really costs the sender. A Token-2022 mint can levy a fee on top of the
- * amount the recipient receives, and it is the sender's account that is debited for both --
- * `estimateFees` computed it during `prepareTransaction`, so read it rather than asking again.
+ * What a token transfer really costs the sender: a Token-2022 mint levies its fee on top of the
+ * amount received, and both leave this account. `estimateFees` already computed it.
  */
 function tokenAmountLeavingTheAccount(amount: bigint, customFees?: FeeEstimation): bigint {
   const transferFee = customFees?.parameters?.transferFee as

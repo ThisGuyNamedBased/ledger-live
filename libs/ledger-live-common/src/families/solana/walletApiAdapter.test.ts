@@ -1,3 +1,4 @@
+import { decodeTokenAccountIdSync } from "@ledgerhq/ledger-wallet-framework/account/accountId";
 import { AccountLike, TokenAccount } from "@ledgerhq/types-live";
 import { SolanaTransaction as WalletAPITransaction } from "@ledgerhq/wallet-api-core";
 import BigNumber from "bignumber.js";
@@ -128,15 +129,81 @@ describe("getWalletAPITransactionSignFlowInfos", () => {
       });
     });
 
-    it("rejects a command the generic bridge has no intent for", () => {
-      expect(() =>
-        signFlowInfos({
+    // Only a live app submits these four; no first-party screen builds them.
+    it("opts a token account in, naming the token by a decodable sub-account id", () => {
+      const { liveTx } = signFlowInfos(
+        {
           family: "solana",
           amount: new BigNumber(0),
           recipient: "",
-          model: { kind: "token.revoke", uiState: { subAccountId: "subAccountId" } },
-        }),
-      ).toThrow("Unsupported Solana wallet API transaction: token.revoke");
+          model: { kind: "token.createATA", uiState: { tokenId: "solana/spl/usdc" } },
+        },
+        { type: "Account", id: "js:2:solana:addr:" } as AccountLike,
+      );
+
+      expect(liveTx).toMatchObject({ mode: "opt-in" });
+      expect(decodeTokenAccountIdSync(liveTx.subAccountId as string)).toEqual({
+        accountId: "js:2:solana:addr:",
+        tokenId: "solana/spl/usdc",
+      });
+    });
+
+    it("derives the opt-in sub-account id from the parent of a token account", () => {
+      const { liveTx } = signFlowInfos(
+        {
+          family: "solana",
+          amount: new BigNumber(0),
+          recipient: "",
+          model: { kind: "token.createATA", uiState: { tokenId: "solana/spl/usdc" } },
+        },
+        { type: "TokenAccount", id: "other+tok", parentId: "js:2:solana:addr:" } as AccountLike,
+      );
+
+      expect(decodeTokenAccountIdSync(liveTx.subAccountId as string).accountId).toBe(
+        "js:2:solana:addr:",
+      );
+    });
+
+    it("delegates spending authority, naming the delegate as recipient", () => {
+      const { liveTx } = signFlowInfos({
+        family: "solana",
+        amount: new BigNumber(1000),
+        recipient: "delegateAddr",
+        model: { kind: "token.approve", uiState: { subAccountId: "subAccountId" } },
+      });
+
+      expect(liveTx).toMatchObject({
+        mode: "approve",
+        subAccountId: "subAccountId",
+        recipient: "delegateAddr",
+      });
+    });
+
+    it("takes that authority back", () => {
+      const { liveTx } = signFlowInfos({
+        family: "solana",
+        amount: new BigNumber(0),
+        recipient: "",
+        model: { kind: "token.revoke", uiState: { subAccountId: "subAccountId" } },
+      });
+
+      expect(liveTx).toMatchObject({ mode: "revoke", subAccountId: "subAccountId" });
+    });
+
+    it("splits a stake account, carrying it as the stake-account memo", () => {
+      const { liveTx } = signFlowInfos({
+        family: "solana",
+        amount: new BigNumber(500),
+        recipient: "",
+        model: { kind: "stake.split", uiState: { stakeAccAddr: "stakeAcc" } },
+      });
+
+      expect(liveTx).toMatchObject({
+        mode: "split",
+        recipient: "stakeAcc",
+        memoType: STAKE_ACCOUNT_MEMO_TYPE,
+        memoValue: "stakeAcc",
+      });
     });
   });
 });

@@ -3,11 +3,17 @@ import type {
   TransactionModel as WalletAPISolanaTransactionModel,
 } from "@ledgerhq/wallet-api-core";
 import type BigNumber from "bignumber.js";
+import { safeEncodeTokenId } from "@ledgerhq/ledger-wallet-framework/account/accountId";
+import type { AccountLike } from "@ledgerhq/types-live";
 import type { GetWalletAPITransactionSignFlowInfos } from "../../wallet-api/types";
 import {
+  approveTransaction,
   createStakeAccountTransaction,
   delegateTransaction,
+  optInTransaction,
+  revokeTransaction,
   setTransactionMemo,
+  splitStakeTransaction,
   undelegateTransaction,
   withdrawTransaction,
 } from "./transactions";
@@ -21,9 +27,18 @@ const HAS_FEES_PROVIDED = false;
 
 // The wallet API protocol is fixed by `@ledgerhq/wallet-api-core` and still describes a Solana
 // transaction as a `model: { kind, uiState }`; the generic bridge only reads a flat `mode`.
+// `token.createATA` names its token by CAL id -- the account it opens does not exist yet. The
+// bridge resolves the asset by decoding the sub-account id, so mint one it can decode.
+function tokenAccountIdOf(account: AccountLike, tokenId: string): string {
+  const mainAccountId = account.type === "TokenAccount" ? account.parentId : account.id;
+  return `${mainAccountId}+${safeEncodeTokenId(tokenId)}`;
+}
+
 function fromWalletAPIModel(
   model: WalletAPISolanaTransactionModel,
   amount: BigNumber,
+  recipient: string,
+  account: AccountLike,
 ): Partial<Transaction> {
   switch (model.kind) {
     case "transfer":
@@ -41,10 +56,20 @@ function fromWalletAPIModel(
       return undelegateTransaction(model.uiState.stakeAccAddr);
     case "stake.withdraw":
       return withdrawTransaction(model.uiState.stakeAccAddr, amount);
+    case "stake.split":
+      return splitStakeTransaction(model.uiState.stakeAccAddr, amount);
+    // `uiState` names the token; every address the instructions need is derived from the chain.
+    case "token.createATA":
+      return optInTransaction(tokenAccountIdOf(account, model.uiState.tokenId));
+    case "token.approve":
+      return approveTransaction(model.uiState.subAccountId, recipient, amount);
+    case "token.revoke":
+      return revokeTransaction(model.uiState.subAccountId);
     default:
-      // Letting `token.createATA`, `token.approve`, `token.revoke` or `stake.split` through would
-      // craft a transfer instead: the generic bridge has no intent for them.
-      throw new Error(`Unsupported Solana wallet API transaction: ${model.kind}`);
+      // Exhaustive today; the protocol may still grow a kind this bridge has no intent for.
+      throw new Error(
+        `Unsupported Solana wallet API transaction: ${(model as { kind: string }).kind}`,
+      );
   }
 }
 
@@ -57,7 +82,12 @@ const getWalletAPITransactionSignFlowInfos: GetWalletAPITransactionSignFlowInfos
   const liveTx: Partial<Transaction> = {
     ...common,
     family: "solana",
-    ...fromWalletAPIModel(model, walletApiTransaction.amount),
+    ...fromWalletAPIModel(
+      model,
+      walletApiTransaction.amount,
+      walletApiTransaction.recipient,
+      account,
+    ),
   };
 
   if (!liveTx.subAccountId && account.type === "TokenAccount") {

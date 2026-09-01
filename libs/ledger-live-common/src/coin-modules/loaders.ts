@@ -332,7 +332,7 @@ export const coinModuleLoaders: CoinModuleLoader[] = [
     loadSetup: () => import("../families/solana/setup"),
     loadLocalApi: () =>
       import("../families/solana/coinModuleApi").then(m => m.createLocalSolanaApi),
-    loadTransaction: () => import("@ledgerhq/coin-solana/transaction").then(m => m.default),
+    loadTransaction: () => import("../families/solana/transaction").then(m => m.default),
     loadDeviceTxConfig: () =>
       import("../families/solana/deviceTransactionConfig").then(m => m.default),
     loadWalletApiAdapter: () => import("../families/solana/walletApiAdapter").then(m => m.default),

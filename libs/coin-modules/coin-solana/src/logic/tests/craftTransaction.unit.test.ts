@@ -20,6 +20,7 @@ import {
   buildStakeWithdrawInstructions,
   getMaybeMintAccount,
   getMaybeTokenMintProgram,
+  getMaybeTokenMint,
   getMaybeTokenAccount,
   findAssociatedTokenAccountPubkey,
 } from "../../network/chain/web3";
@@ -41,6 +42,7 @@ jest.mock("../../network/chain/web3", () => ({
   getStakeAccountMinimumBalanceForRentExemption: jest.fn().mockResolvedValue(2_282_880),
   getMaybeMintAccount: jest.fn(),
   getMaybeTokenMintProgram: jest.fn(),
+  getMaybeTokenMint: jest.fn(),
   getMaybeTokenAccount: jest.fn(),
   findAssociatedTokenAccountPubkey: jest.fn(),
 }));
@@ -59,6 +61,14 @@ const mockedGetMaybeMintAccount = getMaybeMintAccount as jest.MockedFunction<
   DeepPartialReturn<typeof getMaybeMintAccount>
 >;
 const mockedGetMaybeTokenMintProgram = jest.mocked(getMaybeTokenMintProgram);
+const mockedGetMaybeTokenMint = getMaybeTokenMint as unknown as jest.MockedFunction<
+  DeepPartialReturn<(address: string, api: ChainAPI) => ReturnType<typeof getMaybeTokenMint>>
+>;
+
+/** One read now carries both the parsed mint and the program that owns it. */
+function mintOf(info: Record<string, unknown>, program = "spl-token") {
+  return { info, onChainAcc: { data: { program } } } as never;
+}
 const mockedGetMaybeTokenAccount = getMaybeTokenAccount as jest.MockedFunction<
   DeepPartialReturn<typeof getMaybeTokenAccount>
 >;
@@ -344,15 +354,19 @@ describe("craftTransaction", () => {
           ]
         : undefined;
 
-      mockedGetMaybeMintAccount.mockResolvedValue({
-        decimals: mintDecimals,
-        supply: "1000000000",
-        isInitialized: true,
-        mintAuthority: null,
-        freezeAuthority: null,
-        extensions,
-      });
-      mockedGetMaybeTokenMintProgram.mockResolvedValue(tokenProgram);
+      mockedGetMaybeTokenMint.mockResolvedValue(
+        mintOf(
+          {
+            decimals: mintDecimals,
+            supply: "1000000000",
+            isInitialized: true,
+            mintAuthority: null,
+            freezeAuthority: null,
+            extensions,
+          },
+          tokenProgram,
+        ),
+      );
       // The recipient here is a wallet address, so only its derived associated account resolves.
       mockedGetMaybeTokenAccount.mockImplementation(async address =>
         address === TEST_RECIPIENT || !recipientAtaExists ? undefined : { mint: CWIF_MINT },
@@ -987,16 +1001,22 @@ describe("craftTransaction – staking", () => {
   });
 
   describe("stake.delegate", () => {
-    it("should craft a delegate command using valAddress and recipient", async () => {
+    // `delegateTransaction()` puts the validator on `recipient` and the stake account in the memo.
+    it("should craft a delegate command from the memo and the validator", async () => {
       await craftTransaction(api, {
         intentType: "staking",
         type: "stake.delegate",
         sender: TEST_ADDRESS,
-        recipient: "StakeAccXYZ111111111111111111111111111111111",
+        recipient: TEST_RECIPIENT,
         valAddress: TEST_RECIPIENT,
+        memo: {
+          type: "string",
+          kind: "STAKE_ACCOUNT",
+          value: "StakeAccXYZ111111111111111111111111111111111",
+        },
         amount: 0n,
         asset: { type: "native" },
-      } as StakingTransactionIntent);
+      } as unknown as StakingTransactionIntent);
 
       expect(mockedBuildStakeDelegateInstructions).toHaveBeenCalledWith(
         api,
@@ -1009,18 +1029,20 @@ describe("craftTransaction – staking", () => {
       );
     });
 
-    it("should throw when no stake account address is provided via recipient", async () => {
+    // The framework always sets a memo; `{ type: "none" }` is how it says there is none.
+    it("should throw when the intent carries no stake account memo", async () => {
       await expect(
         craftTransaction(api, {
           intentType: "staking",
           type: "stake.delegate",
           sender: TEST_ADDRESS,
-          recipient: "",
+          recipient: TEST_RECIPIENT,
           valAddress: TEST_RECIPIENT,
+          memo: { type: "none" },
           amount: 0n,
           asset: { type: "native" },
-        } as StakingTransactionIntent),
-      ).rejects.toThrow("stake.delegate requires a stake account address (via recipient)");
+        } as unknown as StakingTransactionIntent),
+      ).rejects.toThrow("stake.delegate requires a stake account address (via the memo)");
     });
   });
 
@@ -1092,8 +1114,7 @@ describe("craftTransaction – token edge cases", () => {
   afterEach(() => jest.clearAllMocks());
 
   it("should throw when getMaybeMintAccount returns an Error", async () => {
-    mockedGetMaybeMintAccount.mockResolvedValue(new Error("network failure"));
-    mockedGetMaybeTokenMintProgram.mockResolvedValue("spl-token");
+    mockedGetMaybeTokenMint.mockResolvedValue(new Error("network failure"));
 
     await expect(
       craftTransaction(api, {
@@ -1108,8 +1129,7 @@ describe("craftTransaction – token edge cases", () => {
   });
 
   it("should throw when getMaybeMintAccount returns undefined", async () => {
-    mockedGetMaybeMintAccount.mockResolvedValue(undefined);
-    mockedGetMaybeTokenMintProgram.mockResolvedValue("spl-token");
+    mockedGetMaybeTokenMint.mockResolvedValue(undefined);
 
     await expect(
       craftTransaction(api, {
@@ -1125,12 +1145,9 @@ describe("craftTransaction – token edge cases", () => {
 
   it("should send to a token account given as the recipient, without deriving one", async () => {
     const RECIPIENT_ATA = "4Nd1mBQtrMJVYVfKf2PJy9NZUZdTAsp7D4xWLs4gDB4T";
-    mockedGetMaybeMintAccount.mockResolvedValue({
-      decimals: 6,
-      supply: "1000",
-      isInitialized: true,
-    });
-    mockedGetMaybeTokenMintProgram.mockResolvedValue("spl-token");
+    mockedGetMaybeTokenMint.mockResolvedValue(
+      mintOf({ decimals: 6, supply: "1000", isInitialized: true }),
+    );
     mockedGetMaybeTokenAccount.mockResolvedValue({
       mint: "SomeMint11111111111111111111111111111111111",
       owner: new PublicKey(TEST_RECIPIENT),

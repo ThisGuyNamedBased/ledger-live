@@ -13,6 +13,7 @@ import { PARSED_PROGRAMS } from "../network/chain/program/constants";
 import {
   getMaybeTokenMint,
   getStakeAccountAddressWithSeed,
+  getStakeAccountMinimumBalanceForRentExemption,
   type ParsedOnChainMintWithInfo,
 } from "../network/chain/web3";
 import type { TransferFeeConfigExt } from "../network/chain/account/tokenExtensions";
@@ -28,6 +29,7 @@ import type {
 } from "../types";
 import { LEDGER_VALIDATOR_DEFAULT, assertUnreachable } from "../utils";
 import { buildVersionedTransaction, resolveRecipientDescriptor } from "./craftTransaction";
+import { findAssociatedTokenAccountPubkey } from "../network/chain/web3";
 
 const DEFAULT_TX_FEE = 5000;
 
@@ -60,6 +62,28 @@ export async function estimateFees(
 
   const kind = mapIntentToTxKind(intent);
   const fee = await estimateTxFee(api, intent.sender, kind);
+
+  // The token-authority commands act on the owner's own associated account, and the device names it
+  // -- it is derived from the chain, so the wallet cannot work it out on its own.
+  if (TOKEN_AUTHORITY_TYPES.has(intent.type)) {
+    const ownerTokenAccount = await ownerAssociatedTokenAccount(api, intent);
+    return {
+      value: BigInt(fee),
+      ...(ownerTokenAccount ? { parameters: { ownerTokenAccount } } : {}),
+    };
+  }
+
+  // Creating a stake account costs its rent on top of the delegated amount, and that is the sum the
+  // device shows -- so the wallet has to know it to display the same figure.
+  if (kind === "stake.createAccount") {
+    return {
+      value: BigInt(fee),
+      parameters: {
+        stakeAccountRent: BigInt(await getStakeAccountMinimumBalanceForRentExemption(api)),
+      },
+    };
+  }
+
   // The mint is the only authority on a token's transfer fee: `asset.type` comes from the CAL id,
   // which spells every Solana token `spl` -- Token-2022 ones included.
   const mint = await getMaybeMintOfIntent(api, intent);
@@ -440,10 +464,46 @@ async function waitNextBlockhash(api: ChainAPI, currentBlockhash: string) {
   throw new Error("next blockhash timeout");
 }
 
+const TOKEN_AUTHORITY_TYPES = new Set(["token.createATA", "token.approve", "token.revoke"]);
+
+/** The associated token account the sender owns for the intent's mint. */
+async function ownerAssociatedTokenAccount(
+  api: ChainAPI,
+  intent: TransactionIntent<StringMemo | MemoNotSupported>,
+): Promise<string | undefined> {
+  const mint = await getMaybeMintOfIntent(api, intent);
+  const mintAddress = "assetReference" in intent.asset ? intent.asset.assetReference : undefined;
+  if (!mint || !mintAddress) return undefined;
+
+  const ata = await findAssociatedTokenAccountPubkey(
+    intent.sender,
+    mintAddress,
+    tokenProgramOfMint(mint),
+  );
+  return ata.toBase58();
+}
+
+/** Kinds `createDummyTx` can build; the rest are measured as a plain transfer. */
+const MEASURABLE_KINDS = new Set<string>([
+  "transfer",
+  "token.transfer",
+  "token.approve",
+  "token.revoke",
+  "stake.createAccount",
+  "stake.delegate",
+  "stake.undelegate",
+  "stake.withdraw",
+]);
+
 function mapIntentToTxKind(
   intent: TransactionIntent<StringMemo | MemoNotSupported>,
 ): TransactionModel["kind"] {
-  if (isSolanaStakingTransactionIntent(intent)) {
+  // `stake.split` and `token.createATA` have no dummy transaction. Solana prices a transaction per
+  // signature, so measuring them as a plain transfer costs the same answer.
+  if (!MEASURABLE_KINDS.has(intent.type)) {
+    return intent.asset.type === "native" ? "transfer" : "token.transfer";
+  }
+  if (isSolanaStakingTransactionIntent(intent) || intent.type.startsWith("token.")) {
     return intent.type as TransactionModel["kind"];
   }
   if (intent.asset.type !== "native") {

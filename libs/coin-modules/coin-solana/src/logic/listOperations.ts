@@ -99,10 +99,8 @@ type TxMeta = {
  * Callers guarantee that `sig.blockTime` and `tx.meta` are non-null before calling.
  */
 /**
- * The RPC prefixes a memo with its byte length (`[5] hello`); the user only typed what follows.
- *
- * The declared length counts bytes while `String` indexes UTF-16 units, so it cannot be used to
- * slice: on `[6] héllo` it would leave a leading space. Drop the matched prefix instead.
+ * The RPC prefixes a memo with its byte length (`[5] hello`). Dropping the matched prefix rather
+ * than slicing by the declared length, which counts bytes where `String` indexes UTF-16 units.
  */
 export function dropMemoLengthPrefixIfAny(memo: string): string {
   return memo.replace(/^\[\d+\]\s/, "");
@@ -240,8 +238,7 @@ function parseNativeOperations(
 }
 
 /**
- * Operation types a transaction carries on the *main* account beyond a transfer: opting a token
- * account in or out, and freezing or thawing one. Ported from the legacy
+ * Opting a token account in or out, freezing or thawing one. Ported from the legacy
  * `getMainAccOperationTypeFromTx`; without it an ATA creation reads as a plain fee payment.
  */
 function detectAccountOperation(
@@ -498,6 +495,8 @@ function parseTokenOperations(
   const ops: Operation[] = [];
   let operationIndex = 1;
   const burned = isBurnTransaction(tx);
+  // Invariant across the loop below: it reads the transaction, never the change.
+  const parties = tokenParties(tx);
   // Freezing or thawing leaves the balance untouched, so the change carries a zero delta. Legacy
   // emitted an operation for every transaction reaching the token account, zero delta included --
   // and with it a `NONE` for each one that merely brushed past. Only these two are worth a row.
@@ -508,9 +507,9 @@ function parseTokenOperations(
     const op = buildTokenOperation(
       address,
       change,
-      tx,
       meta,
       operationIndex,
+      parties,
       frozenOpType ?? (burned ? "BURN" : undefined),
     );
     ops.push(op);
@@ -523,9 +522,9 @@ function parseTokenOperations(
 function buildTokenOperation(
   address: string,
   change: TokenChange,
-  tx: ParsedTransactionWithMeta,
   meta: TxMeta,
   operationIndex: number,
+  parties: Parties,
   opTypeOverride?: string,
 ): Operation {
   const { mint, delta, tokenType, owner } = change;
@@ -539,7 +538,7 @@ function buildTokenOperation(
   const opType = opTypeOverride ?? (delta > 0n ? "IN" : "OUT");
   const value = delta > 0n ? delta : -delta;
 
-  const { senders, recipients } = tokenParties(tx);
+  const { senders, recipients } = parties;
 
   return makeOperation({
     address,
