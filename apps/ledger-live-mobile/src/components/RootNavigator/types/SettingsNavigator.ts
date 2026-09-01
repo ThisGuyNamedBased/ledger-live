@@ -75,8 +75,7 @@ export type SettingsNavigatorStackParamList = {
   [ScreenName.DebugLottie]: undefined;
   [ScreenName.DebugWallet40]: undefined;
   [ScreenName.DebugContacts]: undefined;
-  /** `toolId` opens DevTools straight on that tool instead of the catalogue. */
-  [ScreenName.DebugDevTools]: { toolId?: string } | undefined;
+  [ScreenName.DebugDevTools]: undefined;
   [ScreenName.DebugPlayground]: undefined;
   [ScreenName.DebugBluetoothAndLocationServices]: undefined;
   [ScreenName.DebugStorageMigration]: undefined;

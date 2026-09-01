@@ -4,13 +4,6 @@ import { render } from "@tests/test-renderer";
 import DevToolsScreen from "../screens/DevToolsScreen";
 
 const devToolsSpy = jest.fn();
-
-// The screen is rendered on its own here, outside a navigator, so `useRoute` has nothing to read.
-let routeParams: { toolId?: string } | undefined;
-jest.mock("@react-navigation/native", () => ({
-  ...jest.requireActual("@react-navigation/native"),
-  useRoute: () => ({ params: routeParams }),
-}));
 jest.mock(
   "@devtools/shell",
   () => ({
@@ -70,7 +63,6 @@ function withBottomInset(children: React.ReactNode) {
 describe("DevToolsScreen", () => {
   beforeEach(() => {
     devToolsSpy.mockClear();
-    routeParams = undefined;
   });
 
   it("mounts DevTools with the configured tools and stack screen options padded by the bottom inset", () => {
@@ -85,19 +77,5 @@ describe("DevToolsScreen", () => {
       { id: "pay-card", config: { marker: "pay-card-props" } },
     ]);
     expect(props.screenOptions.contentStyle).toEqual([expect.anything(), { paddingBottom: 34 }]);
-  });
-
-  it("opens on the catalogue when the route names no tool", () => {
-    render(withBottomInset(<DevToolsScreen />));
-
-    expect(devToolsSpy.mock.calls[0][0].initialToolId).toBeUndefined();
-  });
-
-  it("opens straight on the tool the route names", () => {
-    routeParams = { toolId: "pay-card" };
-
-    render(withBottomInset(<DevToolsScreen />));
-
-    expect(devToolsSpy.mock.calls[0][0].initialToolId).toBe("pay-card");
   });
 });

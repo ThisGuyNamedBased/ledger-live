@@ -31,22 +31,6 @@ describe("CardLogoutView (Native)", () => {
     expect(screen.getByLabelText("Log out")).toBeTruthy();
   });
 
-  it("should leave the card holder details as plain text by default", () => {
-    renderCardLogoutView();
-
-    // Only the logout action is pressable, so a host that asked for nothing gets nothing.
-    expect(screen.queryByLabelText(/Account: 3f2504e0/)).toBeNull();
-  });
-
-  it("should make the card holder details actionable when a host asks", () => {
-    const onInspectSession = jest.fn();
-    renderCardLogoutView({ onInspectSession });
-
-    fireEvent.press(screen.getByLabelText("Card"));
-
-    expect(onInspectSession).toHaveBeenCalledTimes(1);
-  });
-
   it("should call the logout handler when the action is pressed", () => {
     const onLogoutPress = jest.fn();
     renderCardLogoutView({ onLogoutPress });

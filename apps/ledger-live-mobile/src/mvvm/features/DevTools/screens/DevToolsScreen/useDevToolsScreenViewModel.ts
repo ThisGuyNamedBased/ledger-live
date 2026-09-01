@@ -1,5 +1,4 @@
 import { useCallback, useMemo } from "react";
-import { useRoute, type RouteProp } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { NativeStackNavigationOptions } from "@react-navigation/native-stack";
 import { useTheme } from "@ledgerhq/lumen-ui-rnative/styles";
@@ -11,15 +10,12 @@ import {
 } from "@devtools/bindings";
 import type { DevToolsConfig } from "@devtools/shell";
 import { openHostedLoginInSecureBrowser } from "@features/flow-pay-card-auth";
-import type { SettingsNavigatorStackParamList } from "~/components/RootNavigator/types/SettingsNavigator";
 import { NavigatorName, ScreenName } from "~/const";
 import { navigationRef } from "~/rootnavigation";
 import { PAY_TAB_DEEP_LINK } from "~/navigation/deeplinks/payTabDeepLink";
 import { useDevToolsRelay } from "./useDevToolsRelay";
 
 export function useDevToolsScreenViewModel() {
-  const { params } =
-    useRoute<RouteProp<SettingsNavigatorStackParamList, ScreenName.DebugDevTools>>();
   const featureFlagsProps = useFeatureFlagsToolProps();
 
   /**
@@ -84,7 +80,6 @@ export function useDevToolsScreenViewModel() {
 
   return {
     config,
-    initialToolId: params?.toolId,
     screenOptions,
     transport: wire.transport,
     hubUrl: wireState.hubUrl,

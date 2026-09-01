@@ -3,7 +3,6 @@ import {
   type NativeStackNavigationOptions,
 } from "@react-navigation/native-stack";
 import { BottomSheetModalProvider } from "@ledgerhq/lumen-ui-rnative";
-import type { ToolId } from "@devtools/registry";
 import { type DevToolsBaseProps } from "./DevTools.types";
 import { DevToolsProvider, DevToolsShellProvider } from "../context";
 import { useDevToolsViewModel } from "./useDevToolsViewModel";
@@ -14,36 +13,21 @@ import type { DevToolsParamList } from "./navigation";
 
 export interface DevToolsProps extends DevToolsBaseProps {
   readonly screenOptions?: NativeStackNavigationOptions;
-  /**
-   * Opens straight on one tool instead of the catalogue. A host passes it to send someone to the
-   * tool that matches the screen they came from.
-   */
-  readonly initialToolId?: ToolId;
 }
 
 const Stack = createNativeStackNavigator<DevToolsParamList>();
 
-export function DevTools({ config = [], footer, screenOptions, initialToolId }: DevToolsProps) {
+export function DevTools({ config = [], footer, screenOptions }: DevToolsProps) {
   const { shell } = useDevToolsViewModel({ config, footer });
-  const validInitialToolId = config.some(tool => tool.id === initialToolId)
-    ? initialToolId
-    : undefined;
 
   return (
     <BottomSheetModalProvider>
       <DevToolsProvider value={config}>
         <DevToolsShellProvider value={shell}>
-          <Stack.Navigator
-            screenOptions={screenOptions}
-            initialRouteName={validInitialToolId ? "tool" : "categories"}
-          >
+          <Stack.Navigator screenOptions={screenOptions}>
             <Stack.Screen name="categories" component={CategoriesScreen} />
             <Stack.Screen name="tools" component={ToolsScreen} />
-            <Stack.Screen
-              name="tool"
-              component={ToolScreen}
-              initialParams={validInitialToolId ? { toolId: validInitialToolId } : undefined}
-            />
+            <Stack.Screen name="tool" component={ToolScreen} />
           </Stack.Navigator>
         </DevToolsShellProvider>
       </DevToolsProvider>

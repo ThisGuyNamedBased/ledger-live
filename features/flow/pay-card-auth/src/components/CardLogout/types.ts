@@ -12,11 +12,6 @@ export type CardLogoutViewProps = {
   /** True while the logout runs. The action is not pressable then. */
   readonly isLoading: boolean;
   readonly onLogoutPress: () => void;
-  /**
-   * Makes the card holder's details actionable. A host passes it to reach its own tooling; without
-   * one the details are plain text.
-   */
-  readonly onInspectSession?: () => void;
 };
 
 /** `null` means the component has nothing to show: nobody is signed in, or the user is still loading. */
