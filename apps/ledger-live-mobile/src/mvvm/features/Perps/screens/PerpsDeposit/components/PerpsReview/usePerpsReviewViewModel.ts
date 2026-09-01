@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 import type { PerpsDepositReviewParams } from "@ledgerhq/live-common/wallet-api/Perps/server";
 import { getAccountCurrency } from "@ledgerhq/live-common/account/index";
 import { formatCurrencyUnit, parseCurrencyUnit } from "@ledgerhq/live-common/currencies/index";
@@ -18,6 +18,7 @@ export type PerpsReviewProps = PerpsReviewParams &
   Readonly<{
     isOpen: boolean;
     onClose: () => void;
+    onConfirm: () => void;
   }>;
 
 export type PerpsReviewViewModel = Readonly<{
@@ -31,6 +32,7 @@ export type PerpsReviewViewModel = Readonly<{
 export function usePerpsReviewViewModel({
   isOpen,
   onClose,
+  onConfirm,
   amountSent,
   amountTo,
   depositAccount,
@@ -100,17 +102,11 @@ export function usePerpsReviewViewModel({
     [approximateAmountReceived, receiverAccountLabel],
   );
 
-  const handleDeposit = useCallback(() => {
-    // Confirming closes the drawer; executing the deposit (sign + broadcast) is
-    // owned by the wallet's deposit flow and reports no result to the live app.
-    onClose();
-  }, [onClose]);
-
   return {
     drawerOpen: isOpen,
     swapDetails,
     depositDetails,
     handleDrawerClose: onClose,
-    handleDeposit,
+    handleDeposit: onConfirm,
   };
 }
