@@ -340,6 +340,7 @@ export const coinModuleLoaders: CoinModuleLoader[] = [
     loadSigner: () => import("../families/solana/signer").then(m => m.default),
     loadBridgeApi: () => import("../families/solana/bridge/api").then(m => m.default),
     loadAccountRawAssign: () => import("../families/solana/accountRawAssign").then(m => m.default),
+    loadBridgeExtensions: () => import("../families/solana/bridgeExtensions").then(m => m.default),
   },
   {
     family: "stacks",
