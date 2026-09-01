@@ -6,7 +6,7 @@ export interface SectionProps {
   readonly children: ReactNode;
 }
 
-const CONTAINER_LX = { gap: "s8", paddingHorizontal: "s16", paddingVertical: "s12" } as const;
+const CONTAINER_LX = { gap: "s12", padding: "s16" } as const;
 const CONTENT_LX = { gap: "s8" } as const;
 
 export function Section({ title, children }: SectionProps) {
