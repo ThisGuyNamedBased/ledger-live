@@ -1,17 +1,70 @@
+import { useState } from "react";
 import { ScrollView } from "react-native";
-import { Box, Button, Divider, Tag, Text } from "@ledgerhq/lumen-ui-rnative";
+import {
+  Box,
+  Button,
+  Divider,
+  ListItem,
+  ListItemContent,
+  ListItemLeading,
+  ListItemTitle,
+  ListItemTrailing,
+  SectionHeader,
+  SectionHeaderTitle,
+  Spot,
+  Tag,
+  Text,
+} from "@ledgerhq/lumen-ui-rnative";
+import { ChevronRight, CoinsCrypto, CreditCard } from "@ledgerhq/lumen-ui-rnative/symbols";
 import type { PayCardToolProps } from "../types";
 import { Section } from "../components/Section/Section";
 import { ToggleRow } from "../components/ToggleRow/ToggleRow";
 import { EnvVarRow } from "../components/EnvVarRow/EnvVarRow";
+import { Interaction } from "../components/Interaction/Interaction";
 
 const BUTTON_ROW_STYLE = { flexDirection: "row", flexWrap: "wrap", gap: 8 } as const;
 
 export function PayCard(props: Readonly<PayCardToolProps>) {
-  const { flags, onboarding, hasSeenFeatureTour, resetPayCardFeatureTourSeen, env } = props;
+  const { flags, onboarding, interaction, hasSeenFeatureTour, resetPayCardFeatureTourSeen, env } =
+    props;
+  const [showInteraction, setShowInteraction] = useState(false);
+
+  if (showInteraction) {
+    return <Interaction {...interaction} onBack={() => setShowInteraction(false)} />;
+  }
 
   return (
     <ScrollView>
+      <SectionHeader>
+        <SectionHeaderTitle>Debug</SectionHeaderTitle>
+      </SectionHeader>
+
+      <ListItem onPress={() => setShowInteraction(true)}>
+        <ListItemLeading lx={{ paddingHorizontal: "s16" }}>
+          <Spot appearance="icon" icon={CreditCard} />
+          <ListItemContent>
+            <ListItemTitle>Card interaction</ListItemTitle>
+          </ListItemContent>
+        </ListItemLeading>
+        <ListItemTrailing lx={{ paddingHorizontal: "s16" }}>
+          <ChevronRight />
+        </ListItemTrailing>
+      </ListItem>
+
+      <ListItem>
+        <ListItemLeading lx={{ paddingHorizontal: "s16" }}>
+          <Spot appearance="icon" icon={CoinsCrypto} />
+          <ListItemContent>
+            <ListItemTitle>Balance</ListItemTitle>
+          </ListItemContent>
+        </ListItemLeading>
+        <ListItemTrailing lx={{ paddingHorizontal: "s16" }}>
+          <ChevronRight />
+        </ListItemTrailing>
+      </ListItem>
+
+      <Divider />
+
       <Section title="Feature flags">
         <ToggleRow
           label="Pay tab"
