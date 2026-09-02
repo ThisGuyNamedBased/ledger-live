@@ -12,11 +12,13 @@ exports[`casper currency bridge scanAccounts casper seed 1 1`] = `
     "index": 0,
     "operationsCount": 2,
     "pendingOperations": [],
-    "seedIdentifier": "038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16",
+    "seedIdentifier": "02038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16",
     "spendableBalance": "9750000000",
+    "subAccounts": [],
     "swapHistory": [],
-    "syncHash": undefined,
+    "syncHash": "0x2fbec93d",
     "used": true,
+    "xpub": "02038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16",
   },
   {
     "balance": "4550000000",
@@ -28,11 +30,13 @@ exports[`casper currency bridge scanAccounts casper seed 1 1`] = `
     "index": 1,
     "operationsCount": 4,
     "pendingOperations": [],
-    "seedIdentifier": "038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16",
+    "seedIdentifier": "02038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16",
     "spendableBalance": "4550000000",
+    "subAccounts": [],
     "swapHistory": [],
-    "syncHash": undefined,
+    "syncHash": "0x2fbec93d",
     "used": true,
+    "xpub": "0202ba6dc98cbe677711a45bf028a03646f9e588996eb223fad2485e8bc391b01581",
   },
   {
     "balance": "0",
@@ -44,11 +48,13 @@ exports[`casper currency bridge scanAccounts casper seed 1 1`] = `
     "index": 2,
     "operationsCount": 0,
     "pendingOperations": [],
-    "seedIdentifier": "038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16",
+    "seedIdentifier": "02038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16",
     "spendableBalance": "0",
+    "subAccounts": [],
     "swapHistory": [],
-    "syncHash": undefined,
+    "syncHash": "0x2fbec93d",
     "used": false,
+    "xpub": "02022aab9b6ed404f8cffe76ce493e1995d195b5f141ee7d5b7fb20fce60f2a49691",
   },
 ]
 `;
@@ -58,13 +64,16 @@ exports[`casper currency bridge scanAccounts casper seed 1 2`] = `
   [
     {
       "accountId": "js:2:casper:02038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16:casper_wallet",
-      "blockHash": null,
-      "blockHeight": 1,
-      "extra": {},
+      "blockHash": "2eba67d58f07f1cfddf5e42f800d933cada3223d7aa70079ceb8497b11edcea3",
+      "blockHeight": 1272769,
+      "extra": {
+        "feePayer": "79e548dd1aed87e79e797704c1175266eb705757ba52d786784a72655eb53e7f",
+      },
       "fee": "100000000",
       "hasFailed": false,
       "hash": "17cc9162da13394478f4f00dc7be53cb4406b6762cc2341c60bfdbf9e137a03f",
       "id": "js:2:casper:02038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16:casper_wallet-17cc9162da13394478f4f00dc7be53cb4406b6762cc2341c60bfdbf9e137a03f-IN",
+      "internalOperations": [],
       "recipients": [
         "f74845d90933546a90faec6a605961d078b0fbf1a3b954cee8cd982e43b7c09d",
       ],
@@ -76,13 +85,16 @@ exports[`casper currency bridge scanAccounts casper seed 1 2`] = `
     },
     {
       "accountId": "js:2:casper:02038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16:casper_wallet",
-      "blockHash": null,
-      "blockHeight": 1,
-      "extra": {},
+      "blockHash": "752245992dcba949354a583a865618da29c97c163e852417d1ad0c148a848466",
+      "blockHeight": 1272937,
+      "extra": {
+        "feePayer": "79e548dd1aed87e79e797704c1175266eb705757ba52d786784a72655eb53e7f",
+      },
       "fee": "100000000",
       "hasFailed": false,
       "hash": "74c9cedc96bdde3e4dba8ceb0dc702e27bf259ad94f5e5e67adef25c388075b8",
       "id": "js:2:casper:02038c8cb0f62b4efcd0c7868c2e749dda649affe30ff0f95fc91ce48ea67f077d16:casper_wallet-74c9cedc96bdde3e4dba8ceb0dc702e27bf259ad94f5e5e67adef25c388075b8-IN",
+      "internalOperations": [],
       "recipients": [
         "f74845d90933546a90faec6a605961d078b0fbf1a3b954cee8cd982e43b7c09d",
       ],
@@ -96,13 +108,16 @@ exports[`casper currency bridge scanAccounts casper seed 1 2`] = `
   [
     {
       "accountId": "js:2:casper:0202ba6dc98cbe677711a45bf028a03646f9e588996eb223fad2485e8bc391b01581:casper_wallet",
-      "blockHash": null,
-      "blockHeight": 1,
-      "extra": {},
+      "blockHash": "2eba67d58f07f1cfddf5e42f800d933cada3223d7aa70079ceb8497b11edcea3",
+      "blockHeight": 1272769,
+      "extra": {
+        "feePayer": "79e548dd1aed87e79e797704c1175266eb705757ba52d786784a72655eb53e7f",
+      },
       "fee": "100000000",
       "hasFailed": false,
       "hash": "17cc9162da13394478f4f00dc7be53cb4406b6762cc2341c60bfdbf9e137a03f",
       "id": "js:2:casper:0202ba6dc98cbe677711a45bf028a03646f9e588996eb223fad2485e8bc391b01581:casper_wallet-17cc9162da13394478f4f00dc7be53cb4406b6762cc2341c60bfdbf9e137a03f-OUT",
+      "internalOperations": [],
       "recipients": [
         "f74845d90933546a90faec6a605961d078b0fbf1a3b954cee8cd982e43b7c09d",
       ],
@@ -114,15 +129,17 @@ exports[`casper currency bridge scanAccounts casper seed 1 2`] = `
     },
     {
       "accountId": "js:2:casper:0202ba6dc98cbe677711a45bf028a03646f9e588996eb223fad2485e8bc391b01581:casper_wallet",
-      "blockHash": null,
-      "blockHeight": 1,
+      "blockHash": "7be144672c64c2cb849de832f17c680a8e785f396f6d8fef8dd34c0f9eb803c6",
+      "blockHeight": 1272464,
       "extra": {
+        "feePayer": "947cc343545c8215f1612f199b417e6fc1000139bb451c1554e63123ac9fb66e",
         "transferId": "7772882",
       },
       "fee": "100000000",
       "hasFailed": false,
       "hash": "6dd86840ad7bcd25f5344128cfc34ae9dcea53f5081eb8c6cbd21e2cf3cbabb8",
       "id": "js:2:casper:0202ba6dc98cbe677711a45bf028a03646f9e588996eb223fad2485e8bc391b01581:casper_wallet-6dd86840ad7bcd25f5344128cfc34ae9dcea53f5081eb8c6cbd21e2cf3cbabb8-IN",
+      "internalOperations": [],
       "recipients": [
         "79e548dd1aed87e79e797704c1175266eb705757ba52d786784a72655eb53e7f",
       ],
@@ -134,13 +151,16 @@ exports[`casper currency bridge scanAccounts casper seed 1 2`] = `
     },
     {
       "accountId": "js:2:casper:0202ba6dc98cbe677711a45bf028a03646f9e588996eb223fad2485e8bc391b01581:casper_wallet",
-      "blockHash": null,
-      "blockHeight": 1,
-      "extra": {},
+      "blockHash": "752245992dcba949354a583a865618da29c97c163e852417d1ad0c148a848466",
+      "blockHeight": 1272937,
+      "extra": {
+        "feePayer": "79e548dd1aed87e79e797704c1175266eb705757ba52d786784a72655eb53e7f",
+      },
       "fee": "100000000",
       "hasFailed": false,
       "hash": "74c9cedc96bdde3e4dba8ceb0dc702e27bf259ad94f5e5e67adef25c388075b8",
       "id": "js:2:casper:0202ba6dc98cbe677711a45bf028a03646f9e588996eb223fad2485e8bc391b01581:casper_wallet-74c9cedc96bdde3e4dba8ceb0dc702e27bf259ad94f5e5e67adef25c388075b8-OUT",
+      "internalOperations": [],
       "recipients": [
         "f74845d90933546a90faec6a605961d078b0fbf1a3b954cee8cd982e43b7c09d",
       ],
@@ -152,13 +172,16 @@ exports[`casper currency bridge scanAccounts casper seed 1 2`] = `
     },
     {
       "accountId": "js:2:casper:0202ba6dc98cbe677711a45bf028a03646f9e588996eb223fad2485e8bc391b01581:casper_wallet",
-      "blockHash": null,
-      "blockHeight": 1,
-      "extra": {},
+      "blockHash": "5ab6d67a0df49caa8d294b80fbe3eaf8684e3ca513dcd12c271bb0257b77c851",
+      "blockHeight": 1266943,
+      "extra": {
+        "feePayer": "947cc343545c8215f1612f199b417e6fc1000139bb451c1554e63123ac9fb66e",
+      },
       "fee": "100000000",
       "hasFailed": false,
       "hash": "d179d7aeb1e9046a1a50550f0e188a2a3c3cb257b9ebb1e225c9d8de6729625a",
       "id": "js:2:casper:0202ba6dc98cbe677711a45bf028a03646f9e588996eb223fad2485e8bc391b01581:casper_wallet-d179d7aeb1e9046a1a50550f0e188a2a3c3cb257b9ebb1e225c9d8de6729625a-IN",
+      "internalOperations": [],
       "recipients": [
         "79e548dd1aed87e79e797704c1175266eb705757ba52d786784a72655eb53e7f",
       ],

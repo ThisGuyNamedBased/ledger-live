@@ -145,6 +145,27 @@ const casper: CurrenciesData<Transaction> = {
             fees: getEstimatedFees().toString(),
             amount: "3",
             transferId: "afdsaf1",
+            memoType: "transferId",
+            memoValue: "afdsaf1",
+          }),
+          expectedStatus: {
+            amount: new BigNumber("3"),
+            errors: {
+              sender: new CasperInvalidTransferId(),
+            },
+            warnings: {},
+          },
+        },
+        {
+          // Generic-bridge path: memo fields only, no direct transferId field.
+          name: "invalid transferID via generic memo fields",
+          transaction: fromTransactionRaw({
+            family: "casper",
+            recipient: RECIPIENT_ADDRESS_SECP256k1,
+            fees: getEstimatedFees().toString(),
+            amount: "3",
+            memoType: "transferId",
+            memoValue: "afdsaf1",
           }),
           expectedStatus: {
             amount: new BigNumber("3"),

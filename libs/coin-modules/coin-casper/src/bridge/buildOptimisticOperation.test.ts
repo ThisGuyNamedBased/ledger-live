@@ -1,4 +1,5 @@
 import { encodeOperationId } from "@ledgerhq/ledger-wallet-framework/operation";
+import BigNumber from "bignumber.js";
 import { createMockAccount, createMockTransaction, TEST_TRANSFER_IDS } from "../__tests__/fixtures";
 import { getAddress } from "../logic/validateAddress";
 import type { Transaction } from "../types";
@@ -41,8 +42,8 @@ describe("buildOptimisticOperation", () => {
       senders: [mockAddress],
       recipients: [mockTransaction.recipient],
       accountId: mockAccount.id,
-      value: mockTransaction.amount.plus(mockTransaction.fees),
-      fee: mockTransaction.fees,
+      value: mockTransaction.amount.plus(mockTransaction.fees ?? new BigNumber(0)),
+      fee: mockTransaction.fees ?? new BigNumber(0),
       blockHash: null,
       blockHeight: null,
       date: expect.any(Date),
@@ -85,5 +86,14 @@ describe("buildOptimisticOperation", () => {
     );
 
     expect(operation.extra).toEqual({});
+  });
+
+  test("should use zero fee and correct value when fees is null", () => {
+    const txWithoutFees: Transaction = { ...mockTransaction, fees: null };
+
+    const operation = buildOptimisticOperation(mockAccount, txWithoutFees, mockHash);
+
+    expect(operation.fee).toEqual(new BigNumber(0));
+    expect(operation.value).toEqual(mockTransaction.amount);
   });
 });

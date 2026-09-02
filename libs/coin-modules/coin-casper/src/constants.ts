@@ -13,6 +13,8 @@ export const CASPER_DEFAULT_TTL = 1800000;
 export const CASPER_MAX_TRANSFER_ID = "18446744073709551615";
 /** Largest page the indexer accepts; above it the request is a 400. */
 export const CASPER_INDEXER_MAX_PAGE_SIZE = 250;
+/** The `extra` field key that carries the transfer-id memo value on Casper operations. */
+export const CASPER_MEMO_EXTRA_KEY = "transferId";
 
 export const LANE_KEYS = {
   nativeMint: "native_mint_lane",

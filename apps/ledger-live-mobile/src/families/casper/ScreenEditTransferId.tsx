@@ -43,8 +43,11 @@ function CasperEditTransferId({ navigation, route }: NavigationProps) {
 
     popToScreen(navigation, ScreenName.SendSummary, {
       accountId: account.id,
+      // Cleared state mirrors descriptor/send/memo.ts casper handler — keep in sync.
       transaction: bridge.updateTransaction(transaction, {
-        transferId: transferId && transferId.toString(),
+        transferId: transferId || undefined,
+        memoType: transferId ? "transferId" : null,
+        memoValue: transferId || null,
       }),
     });
   }, [navigation, route.params, account, bridge, transferId]);

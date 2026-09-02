@@ -22,6 +22,8 @@ export function createFrameworkSigner(signer: CasperSigner): CasperFrameworkSign
 
       const address = addressFromDeviceResponse(r);
       // The generic flow feeds this `publicKey` to `combine`, which only accepts the tagged form.
+      // Casper was never shipped on the old (non-generic) bridge, so the tagged-address form is
+      // the only seedIdentifier format that has ever existed in production.
       return { path, address, publicKey: address };
     },
     async signTransaction(path, txJson) {

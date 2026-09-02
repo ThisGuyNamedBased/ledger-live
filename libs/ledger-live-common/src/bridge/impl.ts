@@ -93,6 +93,10 @@ async function buildCurrencyBridge(currency: CryptoCurrency): Promise<CurrencyBr
     });
   }
 
+  // No runtime kill-switch: genericCoinFrameworkFamilies.json is the authoritative gate.
+  // All families listed there (including casper, added in LIVE-35912) were never shipped on
+  // the old non-generic bridge path, so no seedIdentifier migration shim is needed and the
+  // direct routing below is safe.
   if (isGenericCoinFrameworkFamily(family)) {
     return getCoinFrameworkCurrencyBridge(family, "local");
   }

@@ -101,6 +101,29 @@ describe("genericSignOperation", () => {
     );
   });
 
+  it("maps the coin-declared memoType to the craftTransaction memo shape", async () => {
+    const txWithTransferId = {
+      amount: new BigNumber(2_500_000_000),
+      fees: new BigNumber(100_000_000),
+      recipient: "rRecipient",
+      family: "family",
+      memoType: "transferId",
+      memoValue: "42",
+    } as any;
+
+    const signOperation = genericSignOperation("mainnet", "family")(mockSignerContext);
+    await lastValueFrom(
+      signOperation({ account, transaction: txWithTransferId, deviceId: "" }).pipe(toArray()),
+    );
+
+    expect(craftTransaction).toHaveBeenCalledTimes(1);
+    expect(craftTransaction).toHaveBeenCalledWith(
+      expect.anything(), // context (framework v6)
+      expect.objectContaining({ memo: { type: "string", kind: "transferId", value: "42" } }),
+      expect.anything(),
+    );
+  });
+
   it("signs the prepared amount on useAllAmount without recomputing it via validateIntent", async () => {
     const validateIntent = jest.fn();
     (getCoinModuleApi as jest.Mock).mockReturnValue({
@@ -122,6 +145,7 @@ describe("genericSignOperation", () => {
     await lastValueFrom(observable.pipe(toArray()));
 
     expect(validateIntent).not.toHaveBeenCalled();
+    expect(craftTransaction).toHaveBeenCalledTimes(1);
     expect(craftTransaction).toHaveBeenCalledWith(
       expect.anything(), // context (framework v6)
       expect.objectContaining({ amount: 100000n }),

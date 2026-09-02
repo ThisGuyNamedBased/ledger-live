@@ -13,6 +13,7 @@ import type {
 } from "@ledgerhq/types-live";
 import BigNumber from "bignumber.js";
 import { fromBigNumberToBigInt } from "@ledgerhq/coin-module-framework/utils";
+import { CASPER_MEMO_EXTRA_KEY } from "@ledgerhq/coin-casper/constants";
 import type {
   AssetInfo,
   Balance,
@@ -544,6 +545,16 @@ type FrameworkOperationExtra = {
  * `satisfies Record<…, true>` keeps this list honest: adding a field to `FrameworkOperationExtra`
  * without reserving it here fails to compile.
  */
+/**
+ * Maps memoType values to their `extra` field key when the key differs from the generic "memo".
+ * Used by both `memoExtraFields` and `buildOperationExtra` so adding a new coin only requires
+ * one entry here. Colocated with `FRAMEWORK_RESERVED_EXTRA_KEYS` because those keys are the
+ * ones that drove this design.
+ */
+const MEMO_TYPE_TO_EXTRA_KEY: Readonly<Record<string, string>> = {
+  [CASPER_MEMO_EXTRA_KEY]: CASPER_MEMO_EXTRA_KEY,
+};
+
 const FRAMEWORK_RESERVED_EXTRA_KEYS: ReadonlySet<string> = new Set(
   Object.keys({
     assetReference: true,
@@ -1027,6 +1038,15 @@ function defaultOperationType(mode: GenericTransaction["mode"]): OperationType {
   }
 }
 
+function memoExtraFields(
+  memoType: string | null | undefined,
+  memoValue: string | null | undefined,
+): Record<string, string> {
+  if (!memoType || !memoValue) return {};
+  const extraKey = MEMO_TYPE_TO_EXTRA_KEY[memoType] ?? "memo";
+  return { [extraKey]: memoValue };
+}
+
 export const buildOptimisticOperation = (
   account: Account,
   transaction: GenericTransaction,
@@ -1075,6 +1095,9 @@ export const buildOptimisticOperation = (
       // `adaptCoreOperationToLiveOperation` applies to a family bag arriving from a sync. `blockTime`
       // and `index` are this path's alone, which is why they are not in the reserved set.
       ...(described?.extra ? stripFrameworkReservedKeys(described.extra) : {}),
+      // Populate extra.transferId or extra.memo to match confirmed-op extra shape;
+      // Stellar's memoType is a protocol discriminant ("MEMO_TEXT"), not the target key name.
+      ...memoExtraFields(transaction.memoType, transaction.memoValue),
       ledgerOpType: type,
       blockTime: new Date(),
       index: "0",

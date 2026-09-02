@@ -84,6 +84,20 @@ describe("getDeviceTransactionConfig", () => {
     });
   });
 
+  test("should default fee to zero when fees is null", async () => {
+    const tx = {
+      ...createMockTransaction({ amount: MOCK_AMOUNT }),
+      fees: null,
+    };
+    const fields = await getConfigFields(tx);
+
+    expect(fields[2]).toEqual({
+      type: "casper.extendedAmount",
+      label: "Fee",
+      value: new BigNumber(0),
+    });
+  });
+
   test("should maintain consistent order of fields regardless of transaction properties", async () => {
     const fieldsWithId = await getConfigFields(
       createMockTransaction({ amount: MOCK_AMOUNT, transferId: TRANSFER_ID }),
