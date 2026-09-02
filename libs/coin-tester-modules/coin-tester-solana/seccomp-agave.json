@@ -1,0 +1,32 @@
+{
+  "comment": "Docker default seccomp profile with io_uring allowed. Agave 4.x requires io_uring for account storage (fs/src/dirs.rs). The three io_uring syscalls are blocked by Docker's default profile; allowing them here avoids seccomp:unconfined while keeping all other restrictions intact.",
+  "defaultAction": "SCMP_ACT_ALLOW",
+  "syscalls": [
+    {
+      "names": [
+        "kexec_file_load",
+        "kexec_load",
+        "init_module",
+        "finit_module",
+        "delete_module",
+        "create_module",
+        "get_kernel_syms",
+        "query_module",
+        "perf_event_open",
+        "mount",
+        "umount2",
+        "reboot",
+        "pivot_root",
+        "swapon",
+        "swapoff",
+        "setns",
+        "unshare",
+        "add_key",
+        "request_key",
+        "keyctl"
+      ],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 1
+    }
+  ]
+}

@@ -18,6 +18,7 @@ import { listSolanaStakingPositions } from "@ledgerhq/coin-solana/logic";
 import BigNumber from "bignumber.js";
 import { setEnv } from "@shared/env";
 import { airdrop, killAgave, spawnAgave } from "../agave";
+import { broadcastV1Transfer } from "../v1";
 import { encodeTokenAccountId } from "@ledgerhq/ledger-wallet-framework/account/index";
 import { encodeAccountIdWithTokenAccountAddress } from "@ledgerhq/coin-solana/logic";
 import {
@@ -558,6 +559,7 @@ export const scenarioSolana: Scenario<GenericTransaction, Account> = {
 
     await airdrop(account.freshAddress, 5);
     await airdrop(PAYER.publicKey.toBase58(), 5);
+    await broadcastV1Transfer(account.freshAddress, 1000000n);
     await createSplAccount(account.freshAddress, SOLANA_USDC, 5, "spl-token");
     await createSplAccount(account.freshAddress, SOLANA_CWIF, 5, "spl-token-2022");
     await createSplAccount(account.freshAddress, SOLANA_VIRTUAL, 5, "spl-token");
