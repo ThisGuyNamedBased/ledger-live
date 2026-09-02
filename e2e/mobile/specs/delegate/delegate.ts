@@ -40,8 +40,8 @@ export function runDelegateTest(delegation: DelegateType, tmsLinks: string[], ta
 
       await app.stake.dismissDelegationStart(currencyId);
       if (
-        delegation.account.currency.name === Currency.MULTIVERS_X.name ||
-        delegation.account.currency.name === Currency.OSMO.name
+        delegation.account.currency === Currency.MULTIVERS_X ||
+        delegation.account.currency === Currency.OSMO
       ) {
         // OSMO: Ledger validator removed as default (LIVE-36720); must select explicitly
         await app.stake.setAmount(currencyId, delegation.amount);
