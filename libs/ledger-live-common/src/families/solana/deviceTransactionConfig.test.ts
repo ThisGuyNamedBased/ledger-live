@@ -75,6 +75,20 @@ describe("solana deviceTransactionConfig", () => {
     ]);
   });
 
+  it("names the stake account being opened, as the legacy bridge did", async () => {
+    const fields = await run({
+      ...createStakeAccountTransaction("vote-acc", new BigNumber(1_000_000_000)),
+      stakeAccountRent: new BigNumber(2_282_880),
+      feeParameters: { stakeAccountAddress: "new-stake-acc" },
+    });
+
+    expect(fields[0]).toEqual({
+      type: "address",
+      label: "Delegate from",
+      address: "new-stake-acc",
+    });
+  });
+
   it("falls back to the amount alone when the rent is not known yet", async () => {
     const fields = await run(
       createStakeAccountTransaction("vote-acc", new BigNumber(1_000_000_000)),

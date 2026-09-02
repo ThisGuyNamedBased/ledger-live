@@ -68,7 +68,9 @@ import type { ChainAPI } from "../network";
 
 export async function validateIntent(
   api: ChainAPI,
-  transactionIntent: TransactionIntent<StringMemo | MemoNotSupported> & { data?: { type: string } },
+  transactionIntent: TransactionIntent<StringMemo | MemoNotSupported> & {
+    data?: { type: string; raw?: string };
+  },
   balances: Balance[],
   customFees?: FeeEstimation,
 ): Promise<TransactionValidation> {
@@ -79,7 +81,9 @@ export async function validateIntent(
 
   // A partner-built transaction describes itself; the intent's recipient and amount are
   // placeholders, so validating them would reject a perfectly good payload. Legacy did the same.
-  if (transactionIntent.data?.type === "solana") {
+  // Keyed on `raw`, not on the family tag: `data` also carries the stake account seed of an intent
+  // the wallet built itself, which must still be validated.
+  if (transactionIntent.data?.type === "solana" && transactionIntent.data.raw) {
     return { errors, warnings, estimatedFees, amount: 0n, totalSpent: estimatedFees };
   }
 

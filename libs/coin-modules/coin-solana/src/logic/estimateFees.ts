@@ -8,6 +8,7 @@ import { log } from "@ledgerhq/logs";
 import { VersionedTransaction as OnChainTransaction } from "@solana/web3.js";
 import BigNumber from "bignumber.js";
 import { isSolanaStakingTransactionIntent } from "../logic";
+import { stakeAccountSeedOfIntent } from "./craftTransaction";
 import { ChainAPI } from "../network";
 import { PARSED_PROGRAMS } from "../network/chain/program/constants";
 import {
@@ -54,8 +55,9 @@ export async function estimateFees(
   _customFeesParameters?: FeeEstimation["parameters"],
 ): Promise<FeeEstimation> {
   // A partner-built transaction is measured as-is; there is nothing to derive from the intent.
-  if (intent.data?.type === "solana") {
-    const { raw } = intent.data as SolanaTxData;
+  const solanaData = intent.data?.type === "solana" ? (intent.data as SolanaTxData) : undefined;
+  if (solanaData?.raw) {
+    const { raw } = solanaData;
     const message = OnChainTransaction.deserialize(Buffer.from(raw, "base64")).message;
     return { value: BigInt((await api.getFeeForMessage(message)) ?? DEFAULT_TX_FEE) };
   }
@@ -76,10 +78,19 @@ export async function estimateFees(
   // Creating a stake account costs its rent on top of the delegated amount, and that is the sum the
   // device shows -- so the wallet has to know it to display the same figure.
   if (kind === "stake.createAccount") {
+    const seed = stakeAccountSeedOfIntent(intent);
     return {
       value: BigInt(fee),
       parameters: {
         stakeAccountRent: BigInt(await getStakeAccountMinimumBalanceForRentExemption(api)),
+        ...(seed
+          ? {
+              stakeAccountAddress: await getStakeAccountAddressWithSeed({
+                fromAddress: intent.sender,
+                seed,
+              }),
+            }
+          : {}),
       },
     };
   }

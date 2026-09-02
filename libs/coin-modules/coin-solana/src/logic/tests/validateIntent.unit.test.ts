@@ -330,6 +330,21 @@ describe("validateIntent", () => {
         expect(result.totalSpent).toBe(1_000_000_000n + 5000n);
       });
 
+      // The seed rides in `data`, which also flags a partner-built payload; only the latter skips
+      // validation, or a delegation would be checked against nothing.
+      it("still validates an intent carrying the stake account seed", async () => {
+        const result = await validateIntent(
+          makeStakeIntent({
+            amount: 100_000_000_000n,
+            data: { type: "solana", stakeAccountSeed: "seed" },
+          } as Partial<StakingTransactionIntent>),
+          makeBalances(),
+          { value: 5000n },
+        );
+
+        expect(result.errors.amount).toBeInstanceOf(NotEnoughBalance);
+      });
+
       // Legacy set aside the stake account's rent plus the fees of the eventual undelegate and
       // withdraw (`estimateMaxSpendable.ts`), so the account is never left unable to unstake.
       it("reserves the future undelegate and withdraw fees when sending all", async () => {
