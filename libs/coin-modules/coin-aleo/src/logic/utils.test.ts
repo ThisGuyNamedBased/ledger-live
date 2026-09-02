@@ -99,6 +99,7 @@ import {
   getRecordByCommitment,
   getFunctionNameFromTransactionType,
   getNextSequenceNumber,
+  hasPendingOperationType,
   extractViewKey,
   findBestRecordForFee,
   selectPrivateRecordsForAmount,
@@ -2284,6 +2285,30 @@ describe("getNextSequenceNumber", () => {
     const account = getMockedAccount({ pendingOperations: [op] });
 
     expect(getNextSequenceNumber(account)).toEqual(expected);
+  });
+});
+
+describe("hasPendingOperationType", () => {
+  it("is true when a pending operation of that type is present", () => {
+    const account = getMockedAccount({
+      pendingOperations: [getMockedOperation({ type: "WITHDRAW_UNBONDED" })],
+    });
+
+    expect(hasPendingOperationType(account, "WITHDRAW_UNBONDED")).toBe(true);
+  });
+
+  it("does not confuse one staking type for another", () => {
+    const account = getMockedAccount({
+      pendingOperations: [getMockedOperation({ type: "UNBOND" })],
+    });
+
+    expect(hasPendingOperationType(account, "WITHDRAW_UNBONDED")).toBe(false);
+  });
+
+  it("is false with an empty pending pool", () => {
+    expect(hasPendingOperationType(getMockedAccount({ pendingOperations: [] }), "UNBOND")).toBe(
+      false,
+    );
   });
 });
 

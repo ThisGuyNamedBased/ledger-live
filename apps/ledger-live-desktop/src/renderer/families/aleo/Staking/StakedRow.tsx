@@ -1,16 +1,13 @@
 import React, { useCallback } from "react";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { shortAddressPreview } from "@ledgerhq/live-common/account/index";
 import { formatCurrencyUnit } from "@ledgerhq/live-common/currencies/index";
 import { getAddressExplorer, getDefaultExplorerView } from "@ledgerhq/live-common/explorers";
 import type { AleoAccount } from "@ledgerhq/live-common/families/aleo/types";
-import { useDispatch } from "LLD/hooks/redux";
-import { openModal } from "~/renderer/actions/modals";
 import Box from "~/renderer/components/Box/Box";
 import Discreet from "~/renderer/components/Discreet";
 import FirstLetterIcon from "~/renderer/components/FirstLetterIcon";
 import ToolTip from "~/renderer/components/Tooltip";
-import ChevronRight from "~/renderer/icons/ChevronRight";
 import { useAccountUnit } from "~/renderer/hooks/useAccountUnit";
 import { openURL } from "~/renderer/linking";
 import { Column, Ellipsis, SubLabel, Wrapper } from "../blocks/Staking";
@@ -24,7 +21,6 @@ type Props = {
 
 const StakedRow = ({ account, position }: Props) => {
   const { t } = useTranslation();
-  const dispatch = useDispatch();
   const unit = useAccountUnit(account);
   const { bondedBalance, bondedValidator, validatorLabel, nonEarningReason, estimatedRate } =
     position;
@@ -35,10 +31,6 @@ const StakedRow = ({ account, position }: Props) => {
     const url = explorerView && getAddressExplorer(explorerView, bondedValidator);
     if (url) openURL(url);
   }, [account.currency, bondedValidator]);
-
-  const onManage = useCallback(() => {
-    dispatch(openModal("MODAL_ALEO_MANAGE", { account }));
-  }, [account, dispatch]);
 
   return (
     <Wrapper>
@@ -75,15 +67,6 @@ const StakedRow = ({ account, position }: Props) => {
           : t("aleo.stake.table.estimatedRate", {
               rate: (estimatedRate * 100).toFixed(1),
             })}
-      </Column>
-
-      <Column clickable onClick={onManage} id="account-manage-staking-button">
-        <Box horizontal alignItems="center">
-          <Trans i18nKey="common.manage" />
-          <div style={{ transform: "rotate(90deg)" }}>
-            <ChevronRight size={16} />
-          </div>
-        </Box>
       </Column>
     </Wrapper>
   );

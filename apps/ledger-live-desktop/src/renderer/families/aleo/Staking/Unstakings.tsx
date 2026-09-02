@@ -1,8 +1,6 @@
 import React, { useCallback } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { shortAddressPreview } from "@ledgerhq/live-common/account/index";
 import { formatCurrencyUnit } from "@ledgerhq/live-common/currencies/index";
-import { getAddressExplorer, getDefaultExplorerView } from "@ledgerhq/live-common/explorers";
 import type { AleoAccount } from "@ledgerhq/live-common/families/aleo/types";
 import { useDispatch } from "LLD/hooks/redux";
 import { openModal } from "~/renderer/actions/modals";
@@ -13,13 +11,13 @@ import TableContainer, { HeaderWrapper, TableHeader } from "~/renderer/component
 import ToolTip from "~/renderer/components/Tooltip";
 import ClockIcon from "~/renderer/icons/Clock";
 import { useAccountUnit } from "~/renderer/hooks/useAccountUnit";
-import { openURL } from "~/renderer/linking";
 import { useAleoLiveBlockHeight } from "../hooks/useAleoLiveBlockHeight";
-import { Claim, Column, Ellipsis, SubLabel, TableLine, Wrapper } from "../blocks/Staking";
+import { useSyncOnUnbondingComplete } from "../hooks/useSyncOnUnbondingComplete";
+import { Claim, Column, Ellipsis, TableLine, Wrapper } from "../blocks/Staking";
 import type { AleoStakingPosition } from "./useStakingPosition";
 
 const COLUMNS = [
-  "aleo.stake.table.validator",
+  "aleo.stake.table.source",
   "aleo.stake.table.status",
   "aleo.stake.table.amount",
   "aleo.stake.table.completion",
@@ -34,8 +32,13 @@ const Unstakings = ({ account, position }: Props) => {
   const { t } = useTranslation();
   const dispatch = useDispatch();
   const unit = useAccountUnit(account);
-  const { bondedValidator, validatorLabel, unbondingBalance, unbondingHeight, claimableBalance } =
-    position;
+  const {
+    unbondingBalance,
+    unbondingHeight,
+    claimableBalance,
+    hasPendingClaim,
+    hasPendingUnbondingChange,
+  } = position;
 
   const isClaimable = claimableBalance.gt(0);
 
@@ -49,12 +52,12 @@ const Unstakings = ({ account, position }: Props) => {
   });
   const blocksLeft = unbondingHeight != null ? Math.max(0, unbondingHeight - currentHeight) : null;
 
-  const onExternalLink = useCallback(() => {
-    if (!bondedValidator) return;
-    const explorerView = getDefaultExplorerView(account.currency);
-    const url = explorerView && getAddressExplorer(explorerView, bondedValidator);
-    if (url) openURL(url);
-  }, [account.currency, bondedValidator]);
+  // The live poll has seen the unbonding height pass, but `account.blockHeight` has not caught
+  // up yet — and that synced height is what `getClaimableStakingBalance` and the bridge's own
+  // validation read. Offering the CTA here would open a flow with no amount and a disabled
+  // Continue, so the row reports that it is settling and asks for a sync instead.
+  const isSettling = !isClaimable && blocksLeft === 0;
+  useSyncOnUnbondingComplete(account.id, isSettling);
 
   const onClaim = useCallback(() => {
     dispatch(openModal("MODAL_ALEO_CLAIM_UNBOND", { account }));
@@ -77,17 +80,14 @@ const Unstakings = ({ account, position }: Props) => {
       </HeaderWrapper>
 
       <Wrapper>
-        <Column strong clickable={!!bondedValidator} onClick={onExternalLink}>
+        <Column strong>
           <Box mr={2}>
-            <FirstLetterIcon label={validatorLabel || "?"} />
+            <FirstLetterIcon label={t("aleo.stake.unstaking.source")} />
           </Box>
           <Box style={{ minWidth: 0 }}>
-            <Ellipsis>{validatorLabel || t("aleo.stake.table.unknownValidator")}</Ellipsis>
-            {bondedValidator ? (
-              <ToolTip content={bondedValidator}>
-                <SubLabel>{shortAddressPreview(bondedValidator)}</SubLabel>
-              </ToolTip>
-            ) : null}
+            <ToolTip content={t("aleo.stake.unstaking.sourceTooltip")}>
+              <Ellipsis>{t("aleo.stake.unstaking.source")}</Ellipsis>
+            </ToolTip>
           </Box>
         </Column>
 
@@ -97,7 +97,9 @@ const Unstakings = ({ account, position }: Props) => {
               content={t(
                 isClaimable
                   ? "aleo.stake.unstaking.claimableTooltip"
-                  : "aleo.stake.unstaking.pendingTooltip",
+                  : isSettling
+                    ? "aleo.stake.unstaking.settlingTooltip"
+                    : "aleo.stake.unstaking.pendingTooltip",
               )}
             >
               <ClockIcon size={14} />
@@ -115,10 +117,31 @@ const Unstakings = ({ account, position }: Props) => {
         </Column>
 
         <Column>
-          {isClaimable || blocksLeft === 0 ? (
+          {hasPendingUnbondingChange ? (
+            // Both `unbond_public` and `claim_unbond_public` rewrite the single `unbonding`
+            // slot these figures come from, so either in flight makes a claim unsafe — not
+            // just a claim. Which one it is only changes what the row says.
+            hasPendingClaim ? (
+              <ToolTip content={t("aleo.stake.unstaking.claimPendingTooltip")}>
+                <span data-testid="aleo-claim-pending">
+                  {t("aleo.stake.unstaking.claimPending")}
+                </span>
+              </ToolTip>
+            ) : (
+              <ToolTip content={t("aleo.stake.unstaking.unbondPendingTooltip")}>
+                <span data-testid="aleo-unbond-pending">
+                  {t("aleo.stake.unstaking.unbondPending")}
+                </span>
+              </ToolTip>
+            )
+          ) : isClaimable ? (
             <Claim onClick={onClaim} data-testid="aleo-claim-cta">
               <Trans i18nKey="aleo.stake.claim" />
             </Claim>
+          ) : isSettling ? (
+            <ToolTip content={t("aleo.stake.unstaking.settlingTooltip")}>
+              <span data-testid="aleo-claim-settling">{t("aleo.stake.unstaking.settling")}</span>
+            </ToolTip>
           ) : (
             <ToolTip
               content={

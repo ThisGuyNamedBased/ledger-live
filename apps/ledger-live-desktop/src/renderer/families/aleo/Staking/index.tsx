@@ -36,6 +36,9 @@ const Staking = ({ account }: { account: AleoAccount }) => {
   const onEarnRewards = useCallback(() => {
     dispatch(openModal("MODAL_ALEO_BOND_PUBLIC", { account }));
   }, [account, dispatch]);
+  const onManage = useCallback(() => {
+    dispatch(openModal("MODAL_ALEO_MANAGE", { account }));
+  }, [account, dispatch]);
 
   return (
     <Fragment>
@@ -43,11 +46,15 @@ const Staking = ({ account }: { account: AleoAccount }) => {
         <TableHeader
           title={<Trans i18nKey="aleo.stake.table.header" />}
           titleProps={{ "data-e2e": "title_Staking" }}
-        />
+        >
+          {position.hasBonded ? (
+            <Button id="account-manage-staking-button" color="primary.c80" small onClick={onManage}>
+              <Trans i18nKey="aleo.stake.table.manage" />
+            </Button>
+          ) : null}
+        </TableHeader>
 
-        {position.hasBonded || position.hasUnbonding ? (
-          <StakingSummary account={account} position={position} />
-        ) : null}
+        {position.hasBonded ? <StakingSummary account={account} position={position} /> : null}
 
         {position.hasBonded ? (
           <Fragment>
@@ -57,7 +64,6 @@ const Staking = ({ account }: { account: AleoAccount }) => {
                   <Trans i18nKey={column} />
                 </TableLine>
               ))}
-              <TableLine />
             </HeaderWrapper>
 
             <StakedRow account={account} position={position} />

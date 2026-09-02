@@ -1001,6 +1001,18 @@ export function getClaimableStakingBalance(account: AleoAccount): BigNumber {
 }
 
 /**
+ * True while an operation of that type is still in the pending pool.
+ *
+ * The staking figures in `aleoResources` are read straight from the `credits.aleo` mappings
+ * on each sync and carry no optimistic adjustment, so between broadcast and the next sync
+ * `bondedBalance` and `unbondingBalance` still describe the pre-transaction chain state.
+ * A CTA driven by them alone would keep offering an amount the chain has already committed
+ * away — hence the guard on the pending pool rather than on the balances.
+ */
+export const hasPendingOperationType = (account: AleoAccount, type: OperationType): boolean =>
+  (account.pendingOperations ?? []).some(op => op.type === type);
+
+/**
  * Returns the spendable balance for a given Aleo transaction mode.
  *
  * Aleo accounts maintain two balances:
