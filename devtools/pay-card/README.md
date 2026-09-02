@@ -1,9 +1,9 @@
 # @devtools/pay-card
 
-The Card / Pay DevTool. It puts the Card / Pay feature into a given state from one place, in five
+The Card / Pay DevTool. It puts the Card / Pay feature into a given state from one place, in six
 sections: **Feature flags**, **Onboarding** (toggle each step done or not-done), **Reset onboarding**,
-**Feature tour** (seen state plus a reset) and **Env vars** (the Card backend values, with the
-development tenant ready in each input).
+**Feature tour** (seen state plus a reset), **Request verify hint** (seen state plus a reset) and
+**Env vars** (the Card backend values, with the development tenant ready in each input).
 
 ## Import boundary
 
@@ -46,6 +46,8 @@ interface PayCardToolProps {
   };
   hasSeenFeatureTour: boolean;
   resetPayCardFeatureTourSeen: () => void;
+  hasSeenReceiveVerifyHint: boolean;
+  resetReceiveVerifyHintSeen: () => void;
   env: {
     // The app reads these values on every request, so `setVar` applies without a restart. Nothing
     // saves them: after a restart the app reads the build's values again.
