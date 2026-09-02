@@ -18,6 +18,7 @@ import type { PayTabNavigatorParamList } from "LLM/features/PayTab/types";
 import { payTabEthAccount, payTabUsdcAccount, usd, usdc } from "./fixtures";
 
 const REQUEST_TITLE = "Request USD Coin";
+const VERIFY_HINT_COPY = /Verify your address on/;
 const VERIFY = "Verify";
 const VERIFY_ADDRESS = "Verify address";
 const VERIFY_INTRO = "Verify your address";
@@ -32,6 +33,32 @@ jest.mock("~/analytics", () => ({
 jest.mock("@features/flow-pay-card", () => ({
   Card: () => null,
 }));
+
+jest.mock("@react-navigation/native", () => {
+  const actual = jest.requireActual("@react-navigation/native");
+  const patchedNavigations = new WeakSet<object>();
+  return {
+    ...actual,
+    useNavigation: () => {
+      const navigation = actual.useNavigation();
+      if (navigation && !patchedNavigations.has(navigation)) {
+        patchedNavigations.add(navigation);
+        const addListener = navigation.addListener.bind(navigation);
+        navigation.addListener = (
+          event: string,
+          cb: (event: { data?: { closing?: boolean } }) => void,
+        ) => {
+          const unsubscribe = addListener(event, cb);
+          if (event === "transitionEnd") {
+            setTimeout(() => cb({ data: { closing: false } }), 0);
+          }
+          return unsubscribe;
+        };
+      }
+      return navigation;
+    },
+  };
+});
 
 type CapturedExecutor = {
   intent: { input: { expectedAddress: string } };
@@ -137,6 +164,41 @@ describe("PayTab RequestReceive integration", () => {
     mockedBuildInit.mockResolvedValue({} as never);
   });
 
+  it("should show the receive verify hint on first visit and hide it after Got it", async () => {
+    const { user } = renderRequestReceive();
+
+    expect(screen.queryByText(VERIFY_HINT_COPY)).toBeNull();
+    expect(await screen.findByText(VERIFY_HINT_COPY, { timeout: 2000 })).toBeVisible();
+    expect(jest.mocked(track)).toHaveBeenCalledWith("hint_impression", {
+      hint: "verify",
+      buttonLocation: "request",
+      page: "Pay",
+    });
+
+    await user.press(screen.getByText("Got it"));
+
+    await waitFor(() => {
+      expect(screen.queryByText(VERIFY_HINT_COPY)).toBeNull();
+    });
+    expect(jest.mocked(track)).toHaveBeenCalledWith("button_clicked", {
+      button: "got it",
+      hint: "verify",
+      buttonLocation: "request",
+      page: "Pay",
+    });
+  });
+
+  it("should keep the request screen open until Got it or Verify", async () => {
+    const { user } = renderRequestReceive();
+
+    expect(await screen.findByText(VERIFY_HINT_COPY, { timeout: 2000 })).toBeVisible();
+
+    await user.press(screen.getByTestId("pay-request-receive-close"));
+
+    expect(screen.getByTestId("pay-request-receive")).toBeVisible();
+    expect(screen.getByText(VERIFY_HINT_COPY)).toBeVisible();
+  });
+
   it("should render the request receive card for the selected account", async () => {
     renderRequestReceive();
 
@@ -158,6 +220,7 @@ describe("PayTab RequestReceive integration", () => {
   it("should share a picture of the request card when Share is pressed", async () => {
     const { user } = renderRequestReceive();
 
+    await user.press(await screen.findByText("Got it"));
     await user.press(await screen.findByRole("button", { name: "Share" }));
 
     await waitFor(() => {

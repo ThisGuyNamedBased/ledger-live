@@ -3,6 +3,8 @@ import { render, screen, userEvent } from "@testing-library/react-native";
 import { RequestReceiveView } from "../RequestReceiveView.native";
 import { createRequestReceiveViewProps, REQUEST_RECEIVE_LABELS } from "./fixtures";
 
+const VERIFY_HINT_COPY = "Verify your address on your Ledger device before sharing";
+
 jest.mock("@shared/ui-qr-code", () => ({
   QrCode: ({ value, testID }: { value: string; testID?: string }) => {
     const React = require("react");
@@ -52,5 +54,94 @@ describe("RequestReceiveView (Native)", () => {
     await user.press(screen.getByTestId("pay-request-receive-copy"));
 
     expect(onCopy).toHaveBeenCalledTimes(1);
+  });
+
+  it("dims other actions while the verify hint is open so Verify stays contrast", async () => {
+    const user = userEvent.setup();
+    const onCopy = jest.fn();
+    const onVerify = jest.fn();
+    render(
+      <RequestReceiveView
+        {...createRequestReceiveViewProps({
+          visibleActions: ["share", "copy", "verify"],
+          onCopy,
+          onVerify,
+          verifyHint: {
+            open: true,
+            message: VERIFY_HINT_COPY,
+            gotItLabel: "Got it",
+            onGotIt: jest.fn(),
+          },
+        })}
+      />,
+    );
+
+    await user.press(screen.getByTestId("pay-request-receive-copy"));
+    expect(onCopy).not.toHaveBeenCalled();
+
+    await user.press(screen.getByTestId("pay-request-receive-verify"));
+    expect(onVerify).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the verify hint when open and dismisses it with Got it", async () => {
+    const user = userEvent.setup();
+    const onGotIt = jest.fn();
+    render(
+      <RequestReceiveView
+        {...createRequestReceiveViewProps({
+          verifyHint: {
+            open: true,
+            message: VERIFY_HINT_COPY,
+            gotItLabel: "Got it",
+            onGotIt,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText(VERIFY_HINT_COPY)).toBeVisible();
+
+    await user.press(screen.getByText("Got it"));
+
+    expect(onGotIt).toHaveBeenCalledTimes(1);
+  });
+
+  it("hides the verify hint when it is not open yet", () => {
+    render(
+      <RequestReceiveView
+        {...createRequestReceiveViewProps({
+          verifyHint: {
+            open: false,
+            message: VERIFY_HINT_COPY,
+            gotItLabel: "Got it",
+            onGotIt: jest.fn(),
+          },
+        })}
+      />,
+    );
+
+    expect(screen.queryByText(VERIFY_HINT_COPY)).toBeNull();
+  });
+
+  it("does not close while the verify hint is pending", async () => {
+    const user = userEvent.setup();
+    const onClose = jest.fn();
+    render(
+      <RequestReceiveView
+        {...createRequestReceiveViewProps({
+          onClose,
+          verifyHint: {
+            open: true,
+            message: VERIFY_HINT_COPY,
+            gotItLabel: "Got it",
+            onGotIt: jest.fn(),
+          },
+        })}
+      />,
+    );
+
+    await user.press(screen.getByTestId("pay-request-receive-close"));
+
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

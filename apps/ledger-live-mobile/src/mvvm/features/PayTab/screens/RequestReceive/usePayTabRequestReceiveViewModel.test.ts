@@ -16,6 +16,8 @@ jest.mock("@react-native-clipboard/clipboard", () => ({
 }));
 
 const mockGoBack = jest.fn();
+const mockAddListener = jest.fn(() => jest.fn());
+const mockSetOptions = jest.fn();
 const ethereum = getCryptoCurrencyById("ethereum");
 const account = genAccount("pay-tab-request", { currency: ethereum });
 const mockRoute: { params: PayTabNavigatorParamList[typeof ScreenName.PayTabRequestReceive] } = {
@@ -26,6 +28,8 @@ jest.mock("@react-navigation/native", () => ({
   ...jest.requireActual("@react-navigation/native"),
   useNavigation: () => ({
     goBack: mockGoBack,
+    addListener: mockAddListener,
+    setOptions: mockSetOptions,
   }),
   useRoute: () => mockRoute,
 }));
@@ -34,9 +38,23 @@ function withAccount(state: State): State {
   return { ...state, accounts: { ...state.accounts, active: [account] } };
 }
 
+function settleNavigation(): void {
+  const onTransitionEnd = mockAddListener.mock.calls.find(
+    ([event]) => event === "transitionEnd",
+  )?.[1] as ((event: { data?: { closing?: boolean } }) => void) | undefined;
+  act(() => {
+    onTransitionEnd?.({ data: { closing: false } });
+  });
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  mockAddListener.mockImplementation(() => jest.fn());
   mockRoute.params = { accountId: account.id, currency: ethereum };
+});
+
+afterEach(() => {
+  jest.useRealTimers();
 });
 
 describe("usePayTabRequestReceiveViewModel", () => {
@@ -77,6 +95,40 @@ describe("usePayTabRequestReceiveViewModel", () => {
     unmount();
 
     expect(store.getState().appstate.isMainNavigatorVisible).toBe(true);
+  });
+
+  it("should expose an unseen verify hint after the opening transition ends and persist Got it", () => {
+    const { result, store } = renderHook(() => usePayTabRequestReceiveViewModel(), {
+      overrideInitialState: withAccount,
+    });
+
+    expect(result.current.requestReceive.verifyHint?.open).toBe(false);
+    settleNavigation();
+    expect(result.current.requestReceive.verifyHint?.open).toBe(true);
+
+    act(() => result.current.requestReceive.verifyHint?.onGotIt());
+
+    expect(store.getState().payRequestVerifyHint.hasSeenReceiveVerifyHint).toBe(true);
+  });
+
+  it("should block navigator back while the verify hint is unseen", () => {
+    const { result } = renderHook(() => usePayTabRequestReceiveViewModel(), {
+      overrideInitialState: withAccount,
+    });
+
+    expect(mockSetOptions).toHaveBeenCalledWith({ gestureEnabled: false });
+    expect(mockAddListener).toHaveBeenCalledWith("beforeRemove", expect.any(Function));
+
+    const onBeforeRemove = mockAddListener.mock.calls.find(
+      ([event]) => event === "beforeRemove",
+    )?.[1] as (event: { preventDefault: () => void }) => void;
+    const event = { preventDefault: jest.fn() };
+    onBeforeRemove(event);
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+
+    act(() => result.current.requestReceive.verifyHint?.onGotIt());
+
+    expect(mockSetOptions).toHaveBeenCalledWith({ gestureEnabled: true });
   });
 
   it("should go back when closed", () => {
