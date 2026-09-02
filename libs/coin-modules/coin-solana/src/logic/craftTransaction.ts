@@ -38,6 +38,8 @@ import {
   getStakeAccountMinimumBalanceForRentExemption,
 } from "../network/chain/web3";
 import { UserInputType } from "../signer";
+import { withdrawableFromStake } from "../logic";
+import { getStakeAccounts } from "../network/chain/stake-activation/rpc";
 import { createStakeAccountSeed } from "../stakeAccountSeed";
 import type {
   Command,
@@ -164,17 +166,43 @@ async function craftPrebuiltTransaction(
   };
 }
 
+/**
+ * Read live: withdrawing the synced amount off a grown account leaves a residue under the
+ * rent-exempt reserve, which the stake program rejects. `undefined` if the account is gone.
+ */
+async function liveWithdrawable(
+  api: ChainAPI,
+  intent: StakingTransactionIntent,
+): Promise<number | undefined> {
+  const stakeAccounts = await getStakeAccounts(api, intent.sender);
+  const stakeAccount = stakeAccounts.find(
+    ({ account }) => account.onChainAcc.pubkey.toBase58() === intent.recipient,
+  );
+  if (!stakeAccount) return undefined;
+
+  const { account, activation } = stakeAccount;
+  return Math.max(
+    0,
+    withdrawableFromStake({
+      stakeAccBalance: account.onChainAcc.account.lamports,
+      activation,
+      rentExemptReserve: account.info.meta.rentExemptReserve.toNumber(),
+    }),
+  );
+}
+
 async function craftWithdrawTransaction(
   api: ChainAPI,
   intent: StakingTransactionIntent,
   customFees?: FeeEstimation,
 ): Promise<CraftedTransaction> {
+  const withdrawable = await liveWithdrawable(api, intent);
   const command: StakeWithdrawCommand = {
     kind: "stake.withdraw",
     authorizedAccAddr: intent.sender,
     stakeAccAddr: intent.recipient,
     toAccAddr: intent.sender,
-    amount: Number(intent.amount),
+    amount: withdrawable ?? Number(intent.amount),
   };
   const instructions = await buildInstructionsForCommand(api, command);
   const recentBlockhash = await api.getLatestBlockhash();
