@@ -7,6 +7,7 @@ import {
   payCardFeatureTourSlice,
   markPayCardFeatureTourSeen,
 } from "@features/flow-pay-feature-tour/state";
+import { cardApi } from "@shared/api-services";
 import { usePayCardToolProps } from "./usePayCardToolProps";
 
 /**
@@ -45,8 +46,13 @@ function buildStore() {
     reducer: {
       featureFlags: featureFlagsReducer,
       payCardFeatureTour: payCardFeatureTourSlice.reducer,
+      // The tool reads the Card endpoints, so its api has to be part of the store under test.
+      [cardApi.reducerPath]: cardApi.reducer,
     },
-    middleware: gdm => gdm().concat(createFeatureFlagsMiddleware({ resolutionConfig: {} })),
+    middleware: gdm =>
+      gdm()
+        .concat(createFeatureFlagsMiddleware({ resolutionConfig: {} }))
+        .concat(cardApi.middleware),
   });
 }
 

@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLazyGetCardStatusQuery } from "@domain/api-card-management";
+import {
+  useGetCardLinkedWalletsQuery,
+  useGetInternalWalletsQuery,
+  useLazyGetCardStatusQuery,
+} from "@domain/api-card-management";
+import {
+  useCardLinkedWallets,
+  type ResolveWalletCounterValue,
+} from "@features/flow-pay-card-wallets";
 import { useDispatch, useSelector } from "react-redux";
 import { setOverride } from "@shared/feature-flags";
 import { changes, getEnv, setEnvUnsafe, type EnvName } from "@shared/env";
@@ -19,6 +27,11 @@ type PayCardProbe = PayCardToolProps["interaction"]["probes"][number];
 export type UsePayCardToolPropsOptions = {
   /** Pass `"native"` on mobile to include the `walletPay` onboarding step. */
   readonly platform?: "web" | "native";
+  /**
+   * Prices one card-linked wallet. Pricing needs the app's rates and currency settings, so the host
+   * owns it; without one the tool reports no balance rather than a wrong zero.
+   */
+  readonly resolveCounterValue?: ResolveWalletCounterValue;
 };
 
 const LEADING_ONBOARDING_STEPS: readonly OnboardingStep[] = [
@@ -60,6 +73,9 @@ function initialSteps(platform: "web" | "native"): readonly OnboardingStep[] {
     ? [...LEADING_ONBOARDING_STEPS, NATIVE_ONLY_STEP, PURCHASE_STEP]
     : [...LEADING_ONBOARDING_STEPS, PURCHASE_STEP];
 }
+
+/** Never called: the wallet queries are skipped whenever the host omits its own resolver. */
+const NO_COUNTER_VALUE: ResolveWalletCounterValue = () => null;
 
 /** Reads what an endpoint answered, whatever shape the failure arrives in. */
 function describeError(error: unknown): string {
@@ -172,15 +188,63 @@ export function usePayCardToolProps(options: UsePayCardToolPropsOptions = {}): P
 
   const interaction = useMemo(() => ({ probes: [cardStatusProbe] }), [cardStatusProbe]);
 
+  // The wallets are read when the balance screen opens, not when the tool mounts.
+  const [walletsRequested, setWalletsRequested] = useState(false);
+  const { resolveCounterValue } = options;
+
+  const linkedWallets = useCardLinkedWallets({
+    resolveCounterValue: resolveCounterValue ?? NO_COUNTER_VALUE,
+    skip: !walletsRequested || !resolveCounterValue,
+  });
+
+  const loadWallets = useCallback(() => setWalletsRequested(true), []);
+
+  const { refetch: refetchWallets } = linkedWallets;
+  const refreshWallets = useCallback(() => {
+    setWalletsRequested(true);
+    refetchWallets();
+  }, [refetchWallets]);
+
+  // `useCardLinkedWallets` reports only that something failed. Reading the same cache entries again
+  // costs no request and gives the tool what each endpoint actually answered.
+  const skipWallets = !walletsRequested || !resolveCounterValue;
+  const { error: linkedError } = useGetCardLinkedWalletsQuery(undefined, { skip: skipWallets });
+  const { error: internalError } = useGetInternalWalletsQuery(undefined, { skip: skipWallets });
+
+  const errors = useMemo(
+    () =>
+      [
+        { endpoint: "GET /v1/wallet/internal/card_linked", error: linkedError },
+        { endpoint: "GET /v1/wallet/internal", error: internalError },
+      ]
+        .filter(({ error }) => error !== undefined)
+        .map(({ endpoint, error }) => ({ endpoint, detail: describeError(error) })),
+    [linkedError, internalError],
+  );
+
+  const balance = useMemo(
+    () => ({
+      total: linkedWallets.total,
+      isPartialTotal: linkedWallets.isPartialTotal,
+      wallets: linkedWallets.wallets,
+      isFetching: linkedWallets.isFetching,
+      errors,
+      load: loadWallets,
+      refresh: refreshWallets,
+    }),
+    [linkedWallets, errors, loadWallets, refreshWallets],
+  );
+
   return useMemo(
     () => ({
       flags,
       onboarding,
       interaction,
+      balance,
       hasSeenFeatureTour,
       resetPayCardFeatureTourSeen: resetFeatureTour,
       env,
     }),
-    [flags, onboarding, interaction, hasSeenFeatureTour, resetFeatureTour, env],
+    [flags, onboarding, interaction, balance, hasSeenFeatureTour, resetFeatureTour, env],
   );
 }

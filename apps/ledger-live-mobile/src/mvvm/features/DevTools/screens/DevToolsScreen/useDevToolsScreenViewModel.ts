@@ -9,11 +9,13 @@ import {
   useEnvDevToolProps,
 } from "@devtools/bindings";
 import type { DevToolsConfig } from "@devtools/shell";
+import { usePayCardWalletCounterValue } from "LLM/features/PayTab/hooks/usePayCardWalletCounterValue";
 import { useDevToolsRelay } from "./useDevToolsRelay";
 
 export function useDevToolsScreenViewModel() {
   const featureFlagsProps = useFeatureFlagsToolProps();
-  const payCardToolProps = usePayCardToolProps({ platform: "native" });
+  const resolveCounterValue = usePayCardWalletCounterValue();
+  const payCardToolProps = usePayCardToolProps({ platform: "native", resolveCounterValue });
   const envToolProps = useEnvDevToolProps();
   const { theme } = useTheme();
   const { bottom } = useSafeAreaInsets();
