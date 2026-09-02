@@ -32,97 +32,44 @@ export interface PayCardOnboardingProps {
   readonly setStepDone: (id: string, done: boolean) => void;
 }
 
-/** The stored Card session, as the panel shows it. */
 export interface PayCardSessionSnapshot {
   readonly accessToken: string;
   readonly refreshToken: string;
 }
 
-/**
- * One answer the mocked token endpoint can give, as the panel shows it.
- *
- * The mock supplies the label and the hint, so the tool never has to know what a status means.
- */
 export interface PayCardMockResponse {
   readonly id: string;
-  /** The button's text. A status code, where the answer has one. */
   readonly label: string;
-  /** One line, shown while this answer is chosen. */
   readonly hint: string;
 }
 
-/**
- * The mocked provider, when one is running.
- *
- * The tool picks what `POST /v1/auth/oauth2/token` answers. The choices are named by status code,
- * so a tester can match a button against the Baanx API reference.
- */
 export interface PayCardRenewalMockProps {
   readonly available: boolean;
-  /** The id of the chosen answer. */
   readonly response: string;
   readonly responses: readonly PayCardMockResponse[];
   readonly setResponse: (id: string) => void;
-  /**
-   * The renewals the mock answered.
-   *
-   * The mock cannot count what it passes through: on React Native it sees such a request twice, once
-   * through `fetch` and once through the `XMLHttpRequest` that `fetch` opens. The `[card api]` trace
-   * counts every request instead, in the client, once each.
-   */
   readonly renewals: number;
   readonly resetRenewals: () => void;
-  /** Makes the next user request answer 401, which drives the renewal a failure triggers. */
   readonly armUnauthorized: () => void;
 }
 
-/** What one action answered. The id changes on every action, even when the message repeats. */
 export interface PayCardActionResult {
   readonly id: number;
   readonly message: string;
   readonly failed: boolean;
 }
 
-/**
- * Card session controls.
- *
- * Every action calls the real session accessors, so what the panel exercises is what the app ships.
- * Actions that need the mocked provider still run without it; they just reach the real one.
- */
 export interface PayCardAuthProps {
   readonly session: PayCardSessionSnapshot | null;
-  /**
-   * Why the last read of the secure store failed, when it did.
-   *
-   * A store that refused a read is not an empty store, and the panel must not report it as one. The
-   * native store rejects such a read rather than answering "no session", precisely so that a locked
-   * keychain cannot pass for a signed-out user.
-   */
   readonly sessionError: string | null;
-  /** True while an action is running, so the panel can disable its buttons. */
   readonly busy: boolean;
-  /** What the last action reported. The panel shows it as a banner. */
   readonly lastResult: PayCardActionResult | null;
-  /** Re-reads both tokens from the keychain. No network, and it never renews. */
   readonly readTokens: () => void;
-  /** Calls the renewal directly, the way a 401 does. */
   readonly renewNow: () => void;
-  /**
-   * Changes one character of the access token, so the next request answers 401 and the renewal runs.
-   * The only way to start a renewal, since nothing renews ahead of a failure.
-   */
   readonly breakAccessToken: () => void;
-  /** Changes one character of the refresh token, so the provider rejects the next renewal. */
   readonly breakRefreshToken: () => void;
   readonly clearSession: () => void;
-  /** Asks for several renewals at once. One attempt must serve them all. */
-  readonly burst: (callers: number) => void;
-  /** Forces one real user request, ignoring the cache. */
   readonly fetchUser: () => void;
-  /**
-   * Sends the tester to the Pay tab to sign in. Absent on hosts that cannot navigate, so the panel
-   * only offers it when the host built one.
-   */
   readonly openPayTab?: () => void;
   readonly mock: PayCardRenewalMockProps;
 }
@@ -147,12 +94,6 @@ export interface PayCardEnvProps {
   readonly setVar: (key: string, value: string) => void;
 }
 
-/**
- * Opens one URL in the device's secure browser, and answers one line about what came back.
- *
- * The host builds it. Only the app knows the deep link that ends such a session, and only a native
- * host has a secure browser at all, so the panel hides the section everywhere else.
- */
 export type PayCardOpenSecureBrowser = (url: string) => Promise<string>;
 
 /**
@@ -170,11 +111,6 @@ export interface PayCardToolProps {
   readonly resetPayCardFeatureTourSeen: () => void;
   /** The Card backend env vars, read live and set from the tool. */
   readonly env: PayCardEnvProps;
-  /** Card session controls. Absent on hosts that do not build them yet. */
   readonly auth?: PayCardAuthProps;
-  /**
-   * Opens a URL a tester types in the secure browser. Absent on hosts without one, so the panel
-   * only offers the section when the host built it.
-   */
   readonly openSecureBrowser?: PayCardOpenSecureBrowser;
 }

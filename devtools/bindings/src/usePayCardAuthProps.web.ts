@@ -20,7 +20,6 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     breakAccessToken: noop,
     breakRefreshToken: noop,
     clearSession: noop,
-    burst: noop,
     fetchUser: noop,
     openPayTab: options.openPayTab,
     mock: {

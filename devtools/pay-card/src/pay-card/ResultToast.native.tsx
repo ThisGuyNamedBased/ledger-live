@@ -6,12 +6,6 @@ const VISIBLE_MS = 5000;
 
 const OVERLAY_STYLE = { position: "absolute", left: 12, right: 12, bottom: 12 } as const;
 
-/**
- * Shows what the last action answered, then gets out of the way.
- *
- * A floating banner rather than a line under the buttons: the panel scrolls, and a result printed
- * where the buttons are would sit off screen by the time the action finishes.
- */
 export function ResultToast({ result }: { readonly result: PayCardActionResult | null }) {
   const [shown, setShown] = useState<PayCardActionResult | null>(null);
 

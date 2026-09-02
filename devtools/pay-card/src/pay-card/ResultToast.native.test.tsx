@@ -33,7 +33,6 @@ describe("ResultToast (native)", () => {
     act(() => jest.advanceTimersByTime(5000));
     expect(screen.queryByText(result.message)).toBeNull();
 
-    // Same text, new id: the panel must show it again.
     rerender(<ResultToast result={{ ...result, id: 2 }} />);
 
     expect(screen.getByText(result.message)).toBeTruthy();

@@ -7,10 +7,6 @@ const ROW = { flexDirection: "row", flexWrap: "wrap", gap: 8, alignItems: "cente
 
 const HINT = "The browser session the hosted login opens. The app's own deep link closes it.";
 
-/**
- * Opens any URL in the secure browser, so a tester reaches the hosted login page, or a redirect,
- * without the login flow that normally builds the URL.
- */
 export function SecureBrowserSection({ open }: { readonly open: PayCardOpenSecureBrowser }) {
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState(false);

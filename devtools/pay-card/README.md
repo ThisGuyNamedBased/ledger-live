@@ -12,7 +12,7 @@ without such a browser shows no section.
 The native panel adds four more sections at the top, when the host builds the `auth` prop:
 **Auth session** (the stored tokens, or why the secure store refused a read), **Device secure
 storage** (read the tokens, damage one, or clear the session), **Send API requests** (renew the
-session, get the user, or start five callers at once) and **MSW Auth Renewal Mock** (what the mocked
+session, or get the user) and **MSW Auth Renewal Mock** (what the mocked
 token endpoint answers, plus a count of the renewals). A toast reports what each action answered.
 
 ## Import boundary

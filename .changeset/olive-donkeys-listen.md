@@ -9,7 +9,7 @@ Add Card session controls to the Card / Pay DevTool
 
 The panel gains an "Auth session", a "Device secure storage", a "Send API requests" and an "MSW Auth
 Renewal Mock" section: the stored tokens, and buttons that call the real session accessors to break a
-token, renew, burst or fetch. An MSW handler decides what the Baanx renewal grant answers, and
+token, renew or fetch. An MSW handler decides what the Baanx renewal grant answers, and
 publishes its counters to the panel.
 
 The mock offers one button per documented response of `POST /v1/auth/oauth2/token`, named by status

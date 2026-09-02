@@ -7,13 +7,11 @@ const FIELD = { flexDirection: "row", gap: 4, alignItems: "center" } as const;
 
 const VISIBLE_TOKEN_CHARS = 9;
 
-/** Enough of a token to see it change, never the whole credential. */
 function mask(token: string): string {
   const visibleLength = Math.min(VISIBLE_TOKEN_CHARS, Math.max(0, token.length - 1));
   return `${token.slice(0, visibleLength)}…`;
 }
 
-/** Muted label, readable value. Text with no colour is invisible on the panel's background. */
 function Field({ label, value }: { readonly label: string; readonly value: string }) {
   return (
     <Box style={FIELD}>
@@ -30,10 +28,8 @@ function Field({ label, value }: { readonly label: string; readonly value: strin
 export function AuthSection({ auth }: { readonly auth: PayCardAuthProps }) {
   const { session, sessionError, mock, busy } = auth;
 
-  /** Says at a glance who answers these calls: the mock, or the real provider. */
   const requestLabel = (label: string) => (mock.available ? `[MSW] ${label}` : label);
 
-  /** The chosen answer, so the panel can explain it in one line under the grid. */
   const chosen = mock.responses.find(response => response.id === mock.response);
 
   return (
@@ -41,8 +37,6 @@ export function AuthSection({ auth }: { readonly auth: PayCardAuthProps }) {
       <Section title="Auth session">
         {sessionError !== null ? (
           <Box style={ROW}>
-            {/* A store that refused a read holds no answer either way. Saying "No session" here
-                would send a tester to the login screen over a locked keychain. */}
             <Tag size="sm" appearance="error" label="Unreadable" />
             <Text typography="body4" lx={{ color: "muted" }}>
               {sessionError}
@@ -100,9 +94,6 @@ export function AuthSection({ auth }: { readonly auth: PayCardAuthProps }) {
           </Button>
           <Button appearance="gray" size="sm" disabled={busy} onPress={auth.fetchUser}>
             {requestLabel("Get user")}
-          </Button>
-          <Button appearance="gray" size="sm" disabled={busy} onPress={() => auth.burst(5)}>
-            {requestLabel("Burst 5 callers")}
           </Button>
         </Box>
       </Section>

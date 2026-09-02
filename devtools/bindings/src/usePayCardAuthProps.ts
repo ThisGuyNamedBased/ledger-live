@@ -9,12 +9,6 @@ type PayCardAuthProps = NonNullable<PayCardToolProps["auth"]>;
 type SessionSnapshot = NonNullable<PayCardAuthProps["session"]>;
 type ActionResult = NonNullable<PayCardAuthProps["lastResult"]>;
 
-/**
- * The mocked provider's switchboard, published on `globalThis` by the host app's MSW handler.
- *
- * Read structurally rather than imported: the handler lives in the app, which this package cannot
- * import, and `msw` is a devDependency that must never reach a production bundle.
- */
 type CardMockState = {
   tokenResponse: string;
   readonly responses: readonly { id: string; label: string; hint: string }[];
@@ -26,10 +20,6 @@ function readMockState(): CardMockState | undefined {
   return (globalThis as { payCardMockState?: CardMockState }).payCardMockState;
 }
 
-/**
- * `@domain/api-card-management` injects its endpoints into this very object, so they are here at
- * runtime. This package does not depend on it, and must not start to for a debug panel.
- */
 type CardQuery = {
   initiate: (
     arg: undefined,
@@ -43,22 +33,13 @@ const cardEndpoints = cardApi as unknown as CardEndpoints;
 
 const VISIBLE_TOKEN_CHARS = 9;
 
-/** Enough of a token to see it change, never the whole credential. */
 function mask(token: string | null): string {
   if (!token) return "null";
   const visibleLength = Math.min(VISIBLE_TOKEN_CHARS, Math.max(0, token.length - 1));
   return `${token.slice(0, visibleLength)}…`;
 }
 
-/**
- * Builds the Card session controls for the Card / Pay DevTool.
- *
- * Every action calls the real accessors from `@features/platform-card`, so the panel exercises the
- * code the app ships rather than a copy of it. The mocked provider is optional: without it the
- * actions still run, and reach the real provider instead.
- */
 export type UsePayCardAuthPropsOptions = {
-  /** Supplied by the host, because navigation is app-specific. */
   readonly openPayTab?: () => void;
 };
 
@@ -88,8 +69,6 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
       }
       return current;
     } catch (error) {
-      // The store refused the read. That is not an empty store, and the panel says so rather than
-      // reporting the tester as signed out.
       if (mounted.current) {
         setSession(null);
         setSessionError(error instanceof Error ? error.message : String(error));
@@ -103,7 +82,6 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     return resultId.current;
   }, []);
 
-  /** Runs one action, reports what it answered, and re-reads the session it may have changed. */
   const run = useCallback(
     (label: string, action: () => Promise<string>) => {
       setBusy(true);
@@ -150,8 +128,6 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     run("break access token", async () => {
       const current = await cardSession.get();
       if (!current) return "no session";
-      // The first character, not the last: the panel shows the front of the token, so this is the
-      // half a tester can see change.
       const first = current.accessToken.slice(0, 1);
       await cardSession.set({
         accessToken: (first === "X" ? "Y" : "X") + current.accessToken.slice(1),
@@ -165,10 +141,6 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     run("break refresh token", async () => {
       const current = await cardSession.get();
       if (!current) return "no session";
-      // The first character, as with the access token above: the panel shows the front of the
-      // token, so this is the half a tester can see change. Where the change lands no longer
-      // matters — every answer but a new session ends the session, so a malformed token and a
-      // rejected grant reach the same place.
       const first = current.refreshToken.slice(0, 1);
       await cardSession.set({
         accessToken: current.accessToken,
@@ -184,27 +156,6 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
       return "cleared";
     });
   }, [run]);
-
-  const burst = useCallback(
-    (callers: number) => {
-      run(`burst ${callers}`, async () => {
-        const before = readMockState()?.refreshCount;
-        const { sessionId, token } = await readCardSession();
-        if (!token) return "no session";
-        // Renewals, not reads: a read never renews now, so only this measures single flight.
-        const results = await Promise.all(
-          Array.from({ length: callers }, () => refreshCardSession(sessionId, token)),
-        );
-        const after = readMockState()?.refreshCount;
-        const renewals = before === undefined || after === undefined ? "?" : after - before;
-        const tokens = new Set(
-          results.map(result => (result.kind === "refreshed" ? result.accessToken : result.kind)),
-        );
-        return `${tokens.size} distinct answer(s), ${renewals} renewal(s)`;
-      });
-    },
-    [run],
-  );
 
   const fetchUser = useCallback(() => {
     run("get user", async () => {
@@ -255,7 +206,6 @@ export function usePayCardAuthProps(options: UsePayCardAuthPropsOptions = {}): P
     breakAccessToken,
     breakRefreshToken,
     clearSession,
-    burst,
     fetchUser,
     openPayTab: options.openPayTab,
     mock: {

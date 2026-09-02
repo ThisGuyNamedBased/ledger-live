@@ -37,8 +37,6 @@ describe("usePayCardAuthProps", () => {
   });
 
   it("reports a store it could not read apart from an empty one", async () => {
-    // The native store rejects a read the OS refused. An empty store ends a session, so the panel
-    // must not report a locked keychain as a signed-out tester.
     const get = jest
       .spyOn(cardSession, "get")
       .mockRejectedValue(new Error("The keychain is locked"));
@@ -87,7 +85,6 @@ describe("usePayCardAuthProps", () => {
     expect(broken).toHaveLength("at_token".length);
     expect(broken[0]).not.toBe("a");
     expect(broken.slice(1)).toBe("t_token");
-    // The refresh token is untouched: only the access token forces the 401.
     expect(result.current.session?.refreshToken).toBe("rt_token");
   });
 
@@ -101,7 +98,6 @@ describe("usePayCardAuthProps", () => {
     await waitFor(() => expect(result.current.session?.refreshToken).not.toBe("rt_token"));
     const broken = result.current.session?.refreshToken ?? "";
     expect(broken).toHaveLength("rt_token".length);
-    // The first character must differ, or a tester watching the masked prefix sees no change.
     expect(broken[0]).not.toBe("r");
     expect(broken.slice(1)).toBe("t_token");
   });

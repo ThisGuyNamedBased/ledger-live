@@ -16,7 +16,6 @@ function buildAuth(overrides: Partial<PayCardAuthProps> = {}): PayCardAuthProps 
     breakAccessToken: jest.fn(),
     breakRefreshToken: jest.fn(),
     clearSession: jest.fn(),
-    burst: jest.fn(),
     fetchUser: jest.fn(),
     mock: {
       available: true,
@@ -52,7 +51,6 @@ describe("AuthSection (native)", () => {
     expect(screen.getByText("Live")).toBeTruthy();
     expect(screen.getByText("access")).toBeTruthy();
     expect(screen.getByText("refresh")).toBeTruthy();
-    // Masked: enough to recognise, never the whole credential.
     expect(screen.getByText("at_a_very…")).toBeTruthy();
     expect(screen.getByText("rt_a_very…")).toBeTruthy();
     expect(screen.queryByText("at_a_very_long_access_token")).toBeNull();
@@ -124,18 +122,15 @@ describe("AuthSection (native)", () => {
 
     await user.press(screen.getByText("[MSW] Renew now"));
     await user.press(screen.getByText("[MSW] Get user"));
-    await user.press(screen.getByText("[MSW] Burst 5 callers"));
 
     expect(auth.renewNow).toHaveBeenCalledTimes(1);
     expect(auth.fetchUser).toHaveBeenCalledTimes(1);
-    expect(auth.burst).toHaveBeenCalledWith(5);
   });
 
   it("marks the request buttons while the mock answers them", () => {
     render(<AuthSection auth={buildAuth()} />);
 
     expect(screen.getByText("[MSW] Get user")).toBeTruthy();
-    // The keychain buttons reach no provider, so they are never marked.
     expect(screen.getByText("Get auth tokens")).toBeTruthy();
   });
 
@@ -153,7 +148,6 @@ describe("AuthSection (native)", () => {
     render(<AuthSection auth={buildAuth()} />);
 
     expect(screen.getByText("MSW running")).toBeTruthy();
-    // Renewals alone. The mock cannot count a request it passes through without counting it twice.
     expect(screen.getByText("renewals 0")).toBeTruthy();
     expect(screen.getByText("What POST /v1/auth/oauth2/token answers:")).toBeTruthy();
     expect(screen.getByText("Off")).toBeTruthy();
@@ -175,7 +169,6 @@ describe("AuthSection (native)", () => {
     render(<AuthSection auth={{ ...auth, mock: { ...auth.mock, response: "400" } }} />);
 
     expect(screen.getByText("The session must end.")).toBeTruthy();
-    // Only the chosen one, or the line would be a wall of text.
     expect(screen.queryByText("The session renews.")).toBeNull();
   });
 
@@ -195,7 +188,6 @@ describe("AuthSection (native)", () => {
       <AuthSection auth={buildAuth({ session: null, sessionError: "The keychain is locked" })} />,
     );
 
-    // A locked keychain must never read as a signed-out tester.
     expect(screen.getByText("Unreadable")).toBeTruthy();
     expect(screen.getByText("The keychain is locked")).toBeTruthy();
     expect(screen.queryByText("No session")).toBeNull();

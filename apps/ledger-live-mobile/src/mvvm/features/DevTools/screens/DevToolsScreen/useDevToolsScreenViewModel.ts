@@ -18,10 +18,6 @@ import { useDevToolsRelay } from "./useDevToolsRelay";
 export function useDevToolsScreenViewModel() {
   const featureFlagsProps = useFeatureFlagsToolProps();
 
-  /**
-   * Leaves DevTools and lands on the Pay tab, so a tester can sign in without walking back through
-   * Settings. A reset rather than a navigate: DevTools sits inside the Settings stack.
-   */
   const openPayTab = useCallback(() => {
     navigationRef.current?.reset({
       index: 0,
@@ -41,11 +37,6 @@ export function useDevToolsScreenViewModel() {
     });
   }, []);
 
-  /**
-   * Opens a URL a tester types in the same secure browser the hosted login uses, so the panel
-   * exercises the code the app ships. The Pay tab deep link ends the session, exactly as the login
-   * passes it: only a custom scheme closes such a browser.
-   */
   const openSecureBrowser = useCallback(async (url: string) => {
     const result = await openHostedLoginInSecureBrowser(url, PAY_TAB_DEEP_LINK);
     return result.type === "success" ? `redirected to ${result.url}` : "dismissed";

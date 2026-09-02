@@ -17,13 +17,7 @@ type PayCardEnvVar = PayCardToolProps["env"]["vars"][number];
 export type UsePayCardToolPropsOptions = {
   /** Pass `"native"` on mobile to include the `walletPay` onboarding step. */
   readonly platform?: "web" | "native";
-  /** Sends the tester to the Pay tab to sign in. The host supplies it: navigation is app-specific. */
   readonly openPayTab?: () => void;
-  /**
-   * Opens one URL in the secure browser, and answers one line about what came back. The host
-   * supplies it: only a native host has such a browser, and only the app knows the deep link that
-   * ends the session.
-   */
   readonly openSecureBrowser?: PayCardToolProps["openSecureBrowser"];
 };
 
@@ -154,7 +148,6 @@ export function usePayCardToolProps(options: UsePayCardToolPropsOptions = {}): P
 
   const env = useMemo(() => ({ vars: envVars, setVar: setEnvVar }), [envVars, setEnvVar]);
 
-  // Native only for now: the panel that renders these controls is the mobile one.
   const auth = usePayCardAuthProps({ openPayTab: options.openPayTab });
 
   return useMemo(

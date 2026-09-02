@@ -1,24 +1,3 @@
-/**
- * The switchboard the Pay Card MSW handler reads and the DevTools panel drives.
- *
- * It lives on `globalThis` rather than in a module both sides import: the panel's props are built in
- * `@devtools/bindings`, which cannot import from an app, and this file's neighbour pulls in `msw`, a
- * devDependency that must never reach a production bundle. This file imports nothing.
- */
-
-/**
- * What the mocked `POST /v1/auth/oauth2/token` answers.
- *
- * One entry per documented response of the Baanx endpoint, named by its status code so a tester can
- * match the panel against the API reference without translating a nickname. `pass` is the only
- * entry that is not an answer: it lets the real provider reply.
- *
- * Only `200` and `200-slow` keep the session. Every other answer here ends it, which is the one
- * renewal rule — see "Renewal" in `@features/platform-card`. The buttons still differ, because a
- * tester must see that each documented status reaches that end, and by which route.
- *
- * The three transport cases have no status of their own, so they say what they do.
- */
 export type CardTokenResponseId =
   | "pass"
   | "200"
@@ -33,16 +12,10 @@ export type CardTokenResponseId =
 
 export type CardTokenResponse = {
   readonly id: CardTokenResponseId;
-  /** The button's text. */
   readonly label: string;
-  /** One line, shown while this answer is chosen. */
   readonly hint: string;
 };
 
-/**
- * The order the panel shows them in: the real provider, then the successes, then the failures by
- * rising status, then the failure that has no status at all.
- */
 export const CARD_TOKEN_RESPONSES: readonly CardTokenResponse[] = [
   {
     id: "pass",
@@ -98,22 +71,13 @@ export const CARD_TOKEN_RESPONSES: readonly CardTokenResponse[] = [
 
 export type CardMockState = {
   tokenResponse: CardTokenResponseId;
-  /** Published so the panel can list the answers without knowing what they are. */
   readonly responses: readonly CardTokenResponse[];
-  /** Answers the next `GET /v1/user` with a 401, then clears itself. */
   userUnauthorizedOnce: boolean;
-  /**
-   * The renewals the mock answered.
-   *
-   * Answered, not seen. A handler runs twice for a request it passes through, so a counter that
-   * covered `pass` as well would report two renewals for one. See COUNTING in `handler.ts`.
-   */
   refreshCount: number;
 };
 
 type MockHost = { payCardMockState?: CardMockState };
 
-/** Absent unless the app started with `MSW_ENABLED=true`. */
 export function readCardMockState(): CardMockState | undefined {
   return (globalThis as MockHost).payCardMockState;
 }
