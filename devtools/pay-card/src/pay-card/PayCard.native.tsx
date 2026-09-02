@@ -8,7 +8,15 @@ import { EnvVarRow } from "../components/EnvVarRow/EnvVarRow";
 const BUTTON_ROW_STYLE = { flexDirection: "row", flexWrap: "wrap", gap: 8 } as const;
 
 export function PayCard(props: Readonly<PayCardToolProps>) {
-  const { flags, onboarding, hasSeenFeatureTour, resetPayCardFeatureTourSeen, env } = props;
+  const {
+    flags,
+    onboarding,
+    hasSeenFeatureTour,
+    resetPayCardFeatureTourSeen,
+    hasSeenLoginIntro,
+    resetPayCardLoginIntroSeen,
+    env,
+  } = props;
 
   return (
     <ScrollView>
@@ -71,6 +79,23 @@ export function PayCard(props: Readonly<PayCardToolProps>) {
         <Box style={BUTTON_ROW_STYLE}>
           <Button appearance="gray" size="sm" onPress={resetPayCardFeatureTourSeen}>
             Reset feature tour
+          </Button>
+        </Box>
+      </Section>
+
+      <Divider />
+
+      <Section title="Card login intro">
+        <Box style={BUTTON_ROW_STYLE}>
+          <Tag
+            size="sm"
+            appearance={hasSeenLoginIntro ? "success" : "gray"}
+            label={hasSeenLoginIntro ? "Seen" : "Not seen"}
+          />
+        </Box>
+        <Box style={BUTTON_ROW_STYLE}>
+          <Button appearance="gray" size="sm" onPress={resetPayCardLoginIntroSeen}>
+            Reset card login intro
           </Button>
         </Box>
       </Section>

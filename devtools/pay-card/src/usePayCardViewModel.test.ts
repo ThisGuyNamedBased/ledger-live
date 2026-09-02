@@ -29,6 +29,8 @@ function buildProps(overrides: Partial<PayCardToolProps> = {}): PayCardToolProps
     },
     hasSeenFeatureTour: overrides.hasSeenFeatureTour ?? false,
     resetPayCardFeatureTourSeen: overrides.resetPayCardFeatureTourSeen ?? jest.fn(),
+    hasSeenLoginIntro: overrides.hasSeenLoginIntro ?? false,
+    resetPayCardLoginIntroSeen: overrides.resetPayCardLoginIntroSeen ?? jest.fn(),
     env: overrides.env ?? { vars: [], setVar: jest.fn() },
   };
 }

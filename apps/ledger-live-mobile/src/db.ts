@@ -33,9 +33,13 @@ import { type PersistedCAL } from "@domain/api-currency-token";
 import type { PersistedIdentities } from "@domain/entity-client-identity";
 import type { PayCardBalanceState } from "@features/flow-pay-balance/state";
 import type { PayCardFeatureTourState } from "@features/flow-pay-feature-tour/state";
+import type { PayCardLoginIntroState } from "@features/flow-pay-card-auth/state";
 
-/** Persisted pay card blob: the tour flag and the balance filter, stored under one key. */
-type PayCardPersistedState = PayCardFeatureTourState & PayCardBalanceState;
+/**
+ * Persisted pay card blob: the tour flag, the balance filter and the login intro flag, stored
+ * under one key.
+ */
+type PayCardPersistedState = PayCardFeatureTourState & PayCardBalanceState & PayCardLoginIntroState;
 
 const ACCOUNTS_KEY = "accounts";
 const ACCOUNTS_KEY_SORT = "accounts.sort";

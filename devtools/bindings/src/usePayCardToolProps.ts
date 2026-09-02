@@ -7,6 +7,10 @@ import {
   resetPayCardFeatureTourSeen,
   selectPayCardHasSeenFeatureTour,
 } from "@features/flow-pay-feature-tour/state";
+import {
+  resetPayCardLoginIntroSeen,
+  selectPayCardHasSeenLoginIntro,
+} from "@features/flow-pay-card-auth/state";
 import type { DevToolsConfig } from "@devtools/registry";
 
 type PayCardToolProps = Extract<DevToolsConfig[number], { id: "pay-card" }>["config"];
@@ -105,6 +109,12 @@ export function usePayCardToolProps(options: UsePayCardToolPropsOptions = {}): P
     dispatch(resetPayCardFeatureTourSeen());
   }, [dispatch]);
 
+  const hasSeenLoginIntro = useSelector(selectPayCardHasSeenLoginIntro);
+
+  const resetLoginIntro = useCallback(() => {
+    dispatch(resetPayCardLoginIntroSeen());
+  }, [dispatch]);
+
   const setStepDone = useCallback((id: string, done: boolean) => {
     setSteps(current => {
       if (id === "all") {
@@ -151,8 +161,18 @@ export function usePayCardToolProps(options: UsePayCardToolPropsOptions = {}): P
       onboarding,
       hasSeenFeatureTour,
       resetPayCardFeatureTourSeen: resetFeatureTour,
+      hasSeenLoginIntro,
+      resetPayCardLoginIntroSeen: resetLoginIntro,
       env,
     }),
-    [flags, onboarding, hasSeenFeatureTour, resetFeatureTour, env],
+    [
+      flags,
+      onboarding,
+      hasSeenFeatureTour,
+      resetFeatureTour,
+      hasSeenLoginIntro,
+      resetLoginIntro,
+      env,
+    ],
   );
 }

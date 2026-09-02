@@ -13,6 +13,7 @@ import {
 } from "@features/flow-large-screen-upsell";
 import { restorePayCardBalanceFilter } from "@features/flow-pay-balance/state";
 import { restorePayCardFeatureTour } from "@features/flow-pay-feature-tour/state";
+import { restorePayCardLoginIntro } from "@features/flow-pay-card-auth/state";
 import i18n from "~/renderer/i18n/init";
 import { webFrame, ipcRenderer } from "electron";
 import each from "lodash/each";
@@ -344,6 +345,7 @@ async function init() {
   if (payCardState !== undefined) {
     store.dispatch(restorePayCardFeatureTour(payCardState));
     store.dispatch(restorePayCardBalanceFilter(payCardState));
+    store.dispatch(restorePayCardLoginIntro(payCardState));
   }
 
   r(<ReactRoot store={store} language={language} initialCountervalues={initialCountervalues} />);

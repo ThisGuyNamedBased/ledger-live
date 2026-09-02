@@ -24,6 +24,8 @@ function buildProps(): PayCardToolProps {
     },
     hasSeenFeatureTour: false,
     resetPayCardFeatureTourSeen: jest.fn(),
+    hasSeenLoginIntro: false,
+    resetPayCardLoginIntroSeen: jest.fn(),
     env: {
       vars: [
         {
@@ -44,6 +46,7 @@ describe("PayCard (web)", () => {
     expect(screen.getByText("Feature flags")).toBeDefined();
     expect(screen.getByText("Onboarding")).toBeDefined();
     expect(screen.getByText("Feature tour")).toBeDefined();
+    expect(screen.getByText("Card login intro")).toBeDefined();
   });
 
   it("resets the feature tour", () => {
@@ -52,6 +55,15 @@ describe("PayCard (web)", () => {
 
     fireEvent.click(screen.getByText("Reset feature tour"));
     expect(props.resetPayCardFeatureTourSeen).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets the card login intro", () => {
+    const props = buildProps();
+    render(<PayCard {...props} />);
+
+    fireEvent.click(screen.getByText("Reset card login intro"));
+    expect(props.resetPayCardLoginIntroSeen).toHaveBeenCalledTimes(1);
+    expect(props.resetPayCardFeatureTourSeen).not.toHaveBeenCalled();
   });
 
   it("shows both Card env vars, and the value the app reads now", () => {

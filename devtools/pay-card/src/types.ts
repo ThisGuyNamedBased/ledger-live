@@ -65,6 +65,10 @@ export interface PayCardToolProps {
   readonly hasSeenFeatureTour: boolean;
   /** Resets the feature tour so it plays again on the next Pay visit. */
   readonly resetPayCardFeatureTourSeen: () => void;
+  /** Whether the card holder has already seen the Card login intro sheet. */
+  readonly hasSeenLoginIntro: boolean;
+  /** Resets the login intro so it shows again on the next Card `Login` press. */
+  readonly resetPayCardLoginIntroSeen: () => void;
   /** The Card backend env vars, read live and set from the tool. */
   readonly env: PayCardEnvProps;
 }

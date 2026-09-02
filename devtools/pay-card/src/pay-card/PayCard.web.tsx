@@ -5,7 +5,15 @@ import { ToggleRow } from "../components/ToggleRow/ToggleRow";
 import { EnvVarRow } from "../components/EnvVarRow/EnvVarRow";
 
 export function PayCard(props: Readonly<PayCardToolProps>) {
-  const { flags, onboarding, hasSeenFeatureTour, resetPayCardFeatureTourSeen, env } = props;
+  const {
+    flags,
+    onboarding,
+    hasSeenFeatureTour,
+    resetPayCardFeatureTourSeen,
+    hasSeenLoginIntro,
+    resetPayCardLoginIntroSeen,
+    env,
+  } = props;
 
   return (
     <div className="flex flex-col overflow-y-auto">
@@ -68,6 +76,23 @@ export function PayCard(props: Readonly<PayCardToolProps>) {
         <div className="flex flex-wrap gap-8">
           <Button appearance="gray" size="sm" onClick={resetPayCardFeatureTourSeen}>
             Reset feature tour
+          </Button>
+        </div>
+      </Section>
+
+      <Divider />
+
+      <Section title="Card login intro">
+        <div>
+          <Tag
+            size="sm"
+            appearance={hasSeenLoginIntro ? "success" : "gray"}
+            label={hasSeenLoginIntro ? "Seen" : "Not seen"}
+          />
+        </div>
+        <div className="flex flex-wrap gap-8">
+          <Button appearance="gray" size="sm" onClick={resetPayCardLoginIntroSeen}>
+            Reset card login intro
           </Button>
         </div>
       </Section>

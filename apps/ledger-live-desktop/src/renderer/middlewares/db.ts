@@ -34,6 +34,7 @@ import { knownDevicesStoreSelector } from "../reducers/knownDevices";
 import { exportIdentitiesForPersistence } from "@domain/entity-client-identity";
 import { payCardBalancePersistedSelector } from "@features/flow-pay-balance/state";
 import { payCardFeatureTourPersistedSelector } from "@features/flow-pay-feature-tour/state";
+import { payCardLoginIntroPersistedSelector } from "@features/flow-pay-card-auth/state";
 import { accountsPersistedStateChanged } from "@ledgerhq/live-common/account/index";
 
 let DB_MIDDLEWARE_ENABLED = true;
@@ -134,13 +135,18 @@ const DBMiddleware: Middleware<object, State> = store => next => action => {
     return res;
   }
 
-  if (action.type.startsWith("payCardBalance/") || action.type.startsWith("payCardFeatureTour/")) {
+  if (
+    action.type.startsWith("payCardBalance/") ||
+    action.type.startsWith("payCardFeatureTour/") ||
+    action.type.startsWith("payCardLoginIntro/")
+  ) {
     const res = next(action);
     const state = store.getState();
-    // Both pay card flow slices persist into a single blob under one storage key.
+    // All three pay card flow slices persist into a single blob under one storage key.
     setKey("app", "payCard", {
       ...payCardFeatureTourPersistedSelector(state),
       ...payCardBalancePersistedSelector(state),
+      ...payCardLoginIntroPersistedSelector(state),
     });
     return res;
   }

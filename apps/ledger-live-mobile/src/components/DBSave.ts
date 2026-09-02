@@ -37,6 +37,7 @@ import { exportMarketSelector, exportMarketListConfigSelector } from "~/reducers
 import { marketBannerStoreSelector } from "~/reducers/marketBanner";
 import { payCardBalancePersistedSelector } from "@features/flow-pay-balance/state";
 import { payCardFeatureTourPersistedSelector } from "@features/flow-pay-feature-tour/state";
+import { payCardLoginIntroPersistedSelector } from "@features/flow-pay-card-auth/state";
 import { settingsStoreSelector } from "~/reducers/settings";
 import type { State } from "~/reducers/types";
 import { Maybe } from "../types/helpers";
@@ -188,12 +189,22 @@ const marketBannerNotEquals = (a: State, b: State) => a.marketBanner !== b.marke
 export const payCardPersistedSelector = (state: State) => ({
   ...payCardFeatureTourPersistedSelector(state),
   ...payCardBalancePersistedSelector(state),
+  ...payCardLoginIntroPersistedSelector(state),
 });
 
-const payCardDbSaveSliceSelector = createSelector(
+/**
+ * What makes the save fire. `useDBSaveEffect` lists this object in its effect dependencies, so a
+ * slice missing from the inputs would keep the same identity and never trigger a write.
+ */
+export const payCardDbSaveSliceSelector = createSelector(
   (state: State) => state.payCardBalance,
   (state: State) => state.payCardFeatureTour,
-  (payCardBalance, payCardFeatureTour) => ({ payCardBalance, payCardFeatureTour }),
+  (state: State) => state.payCardLoginIntro,
+  (payCardBalance, payCardFeatureTour, payCardLoginIntro) => ({
+    payCardBalance,
+    payCardFeatureTour,
+    payCardLoginIntro,
+  }),
 );
 const payCardPersistedNotEquals = (a: State, b: State) =>
   !isEqual(payCardPersistedSelector(a), payCardPersistedSelector(b));

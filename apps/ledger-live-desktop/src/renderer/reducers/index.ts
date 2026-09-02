@@ -37,7 +37,12 @@ import {
   payCardFeatureTourSlice,
   type PayCardFeatureTourState,
 } from "@features/flow-pay-feature-tour/state";
-import { payCardAuthSlice, type PayCardAuthState } from "@features/flow-pay-card-auth/state";
+import {
+  payCardAuthSlice,
+  payCardLoginIntroSlice,
+  type PayCardAuthState,
+  type PayCardLoginIntroState,
+} from "@features/flow-pay-card-auth/state";
 import type { PayloadAction, UnknownAction } from "@reduxjs/toolkit";
 import dialogs, { DialogsState } from "./dialogs";
 import dialogsWithData, { DialogsWithDataState } from "./dialogsWithData";
@@ -99,6 +104,7 @@ export type State = LLDRTKApiState & {
   payCardBalance: PayCardBalanceState;
   payCardFeatureTour: PayCardFeatureTourState;
   payCardAuth: PayCardAuthState;
+  payCardLoginIntro: PayCardLoginIntroState;
 };
 
 const appReducer = combineReducers({
@@ -142,6 +148,7 @@ const appReducer = combineReducers({
   payCardBalance: payCardBalanceSlice.reducer,
   payCardFeatureTour: payCardFeatureTourSlice.reducer,
   payCardAuth: payCardAuthSlice.reducer,
+  payCardLoginIntro: payCardLoginIntroSlice.reducer,
   ...lldRTKApiReducers,
   ...(getEnv("PLAYWRIGHT_RUN") && {
     lastAction: (_: unknown, action: PayloadAction) => action,

@@ -7,6 +7,10 @@ import {
   payCardFeatureTourSlice,
   markPayCardFeatureTourSeen,
 } from "@features/flow-pay-feature-tour/state";
+import {
+  payCardLoginIntroSlice,
+  markPayCardLoginIntroSeen,
+} from "@features/flow-pay-card-auth/state";
 import { usePayCardToolProps } from "./usePayCardToolProps";
 
 /**
@@ -45,6 +49,7 @@ function buildStore() {
     reducer: {
       featureFlags: featureFlagsReducer,
       payCardFeatureTour: payCardFeatureTourSlice.reducer,
+      payCardLoginIntro: payCardLoginIntroSlice.reducer,
     },
     middleware: gdm => gdm().concat(createFeatureFlagsMiddleware({ resolutionConfig: {} })),
   });
@@ -181,6 +186,14 @@ describe("usePayCardToolProps", () => {
     expect(result.current.hasSeenFeatureTour).toBe(true);
   });
 
+  it("exposes hasSeenLoginIntro from the payCard slice", () => {
+    store.dispatch(markPayCardLoginIntroSeen());
+
+    const { result } = renderHook(() => usePayCardToolProps(), { wrapper: withStore(store) });
+
+    expect(result.current.hasSeenLoginIntro).toBe(true);
+  });
+
   it("exposes the two Card env vars, with the development tenant as the suggestion", () => {
     const { result } = renderHook(() => usePayCardToolProps(), { wrapper: withStore(store) });
 
@@ -235,5 +248,32 @@ describe("usePayCardToolProps", () => {
 
     expect(store.getState().payCardFeatureTour.hasSeenFeatureTour).toBe(false);
     expect(result.current.hasSeenFeatureTour).toBe(false);
+  });
+
+  it("resetPayCardLoginIntroSeen clears the seen flag", () => {
+    store.dispatch(markPayCardLoginIntroSeen());
+
+    const { result } = renderHook(() => usePayCardToolProps(), { wrapper: withStore(store) });
+
+    act(() => {
+      result.current.resetPayCardLoginIntroSeen();
+    });
+
+    expect(store.getState().payCardLoginIntro.hasSeenLoginIntro).toBe(false);
+    expect(result.current.hasSeenLoginIntro).toBe(false);
+  });
+
+  it("keeps the two reset actions apart", () => {
+    store.dispatch(markPayCardFeatureTourSeen());
+    store.dispatch(markPayCardLoginIntroSeen());
+
+    const { result } = renderHook(() => usePayCardToolProps(), { wrapper: withStore(store) });
+
+    act(() => {
+      result.current.resetPayCardLoginIntroSeen();
+    });
+
+    expect(store.getState().payCardLoginIntro.hasSeenLoginIntro).toBe(false);
+    expect(store.getState().payCardFeatureTour.hasSeenFeatureTour).toBe(true);
   });
 });
