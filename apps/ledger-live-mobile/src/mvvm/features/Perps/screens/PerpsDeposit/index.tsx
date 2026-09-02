@@ -49,7 +49,11 @@ function AmountMessage({
 
   if (statusError) {
     return (
-      <Text typography="body3" lx={{ color: "error" }} testID="perps-deposit-form-error">
+      <Text
+        typography="body3"
+        lx={{ color: "error", textAlign: "center" }}
+        testID="perps-deposit-form-error"
+      >
         {t(statusError.labelKey)}
       </Text>
     );
