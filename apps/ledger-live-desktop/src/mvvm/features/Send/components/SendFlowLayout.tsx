@@ -16,6 +16,8 @@ import { track } from "~/renderer/analytics/segment";
 import { getSendFlowTrackingProperties } from "../utils/tracking";
 import { AddNewContactHeaderProvider } from "../context/AddNewContactHeaderContext";
 import { RecipientContactSelectionProvider } from "../context/RecipientContactSelectionContext";
+import { useSendFlowTracking } from "../context/SendFlowTrackingContext";
+import { getSendFlowTrackingPage } from "../utils/contactTracking";
 
 type SendFlowLayoutProps = Readonly<{
   isOpen: boolean;
@@ -25,6 +27,7 @@ type SendFlowLayoutProps = Readonly<{
 export function SendFlowLayout({ isOpen, onClose }: SendFlowLayoutProps) {
   const wizard = useFlowWizard<SendFlowStep, SendFlowBusinessContext, SendStepConfig>();
   const { state } = useSendFlowData();
+  const { recipientType } = useSendFlowTracking();
 
   const currentStepConfig = wizard.currentStepConfig;
   const StepComponent = wizard.currentStepRenderer;
@@ -38,13 +41,14 @@ export function SendFlowLayout({ isOpen, onClose }: SendFlowLayoutProps) {
       if (!open) {
         track("button_clicked", {
           button: "close",
-          page: `step ${wizard.currentStep}`,
+          page: getSendFlowTrackingPage(wizard.currentStep),
+          recipientType,
           ...sendFlowTrackingProperties,
         });
         onClose();
       }
     },
-    [onClose, wizard.currentStep, sendFlowTrackingProperties],
+    [onClose, recipientType, wizard.currentStep, sendFlowTrackingProperties],
   );
 
   const dialogHeight = currentStepConfig?.height ?? "fixed";
