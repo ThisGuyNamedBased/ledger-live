@@ -39,14 +39,16 @@ export function runDelegateTest(delegation: DelegateType, tmsLinks: string[], ta
       await app.account.tapEarn();
 
       await app.stake.dismissDelegationStart(currencyId);
-      if (
-        delegation.account.currency === Currency.MULTIVERS_X ||
-        delegation.account.currency === Currency.OSMO
-      ) {
-        // OSMO: Ledger validator removed as default (LIVE-36720); must select explicitly
+      if (delegation.account.currency === Currency.MULTIVERS_X) {
         await app.stake.setAmount(currencyId, delegation.amount);
         await app.stake.validateAmount(currencyId);
         await app.stake.selectValidator(currencyId, delegation.provider);
+      } else if (delegation.account.currency === Currency.OSMO) {
+        // OSMO: Ledger validator removed as default (LIVE-36720); select before amount to avoid
+        // the fromSelectAmount bridge-pending race on the cosmos Summary screen.
+        await app.stake.selectValidator(currencyId, delegation.provider);
+        await app.stake.setAmount(currencyId, delegation.amount);
+        await app.stake.validateAmount(currencyId);
       } else if (delegation.account.currency.name !== Currency.ADA.name) {
         await app.stake.setAmount(currencyId, delegation.amount);
         await app.stake.validateAmount(currencyId);

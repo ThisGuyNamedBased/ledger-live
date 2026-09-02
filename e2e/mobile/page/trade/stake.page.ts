@@ -75,6 +75,7 @@ export default class StakePage {
     await typeTextById(this.searchPoolInput, ticker);
     await waitForElementById(this.searchPoolInput);
     await tapById(this.providerRow(ticker));
+    await waitForElementById(this.delegationSummaryValidatorId(currencyId));
   }
 
   @Step("Verify fees visible in summary {{{0}}}")
