@@ -36,6 +36,7 @@ import { I18nextProvider } from "react-i18next";
 import { I18nProvider } from "@shared/i18n";
 import i18n from "~/renderer/i18n/init";
 import { setZcashShieldedEnabled } from "@ledgerhq/live-common/families/zcash/setup";
+import DevPortfolioPanel from "~/renderer/components/debug/DevPortfolioPanel";
 
 const reloadApp = (event: KeyboardEvent) => {
   if ((event.ctrlKey || event.metaKey) && event.key === "r") {
@@ -103,6 +104,7 @@ const InnerApp = ({ initialCountervalues }: { initialCountervalues: CounterValue
                             <DrawerProvider>
                               <QueryClientProvider client={queryClient}>
                                 <Default />
+                                <DevPortfolioPanel />
                                 <ReactQueryDevtoolsProvider />
                               </QueryClientProvider>
                             </DrawerProvider>

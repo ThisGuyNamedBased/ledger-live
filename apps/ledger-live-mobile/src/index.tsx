@@ -5,6 +5,7 @@ import "./live-common-setup";
 import "./iosWebsocketFix";
 import "./utils/tanstack-setup";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import DevPanelHost from "~/components/debug/DevPanel";
 import React, { Component, useMemo, useEffect, useRef } from "react";
 import { StyleSheet, LogBox, Appearance, AppState, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -382,6 +383,7 @@ export default class Root extends Component {
                             <NavBarColorHandler />
                             <AuthPass>
                               <GestureHandlerRootView style={styles.root}>
+                                <DevPanelHost>
                                 <WaitForAppReady currencyInitialized={currencyInitialized}>
                                   <AppProviders initialCountervalues={initialCountervalues}>
                                     <AppGeoBlocker>
@@ -393,6 +395,7 @@ export default class Root extends Component {
                                     </AppGeoBlocker>
                                   </AppProviders>
                                 </WaitForAppReady>
+                                </DevPanelHost>
                               </GestureHandlerRootView>
                             </AuthPass>
                           </StylesProvider>
