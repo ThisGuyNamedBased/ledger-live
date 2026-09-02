@@ -9,3 +9,4 @@ Name the fields a Card response was rejected on.
 - `catchSchemaFailure` now lists every failing path, so one run reports them all.
 - The rejected value is never carried into the error: a Card response holds the cardholder's name and PAN digits.
 - A live card answers `/v1/card/status` without `holderName` or `expiryDate`, so both are optional. The rest stay required.
+- An internal wallet with no address memo answers with the key absent, not `null`, so `addressMemo` is nullish.
