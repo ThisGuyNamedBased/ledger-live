@@ -52,6 +52,7 @@ import {
 } from "../__tests__/fixtures/transaction.fixture";
 import type {
   AleoContext,
+  AleoOperation,
   AleoOperationExtra,
   AleoPublicTransaction,
   AleoTokenType,
@@ -112,6 +113,7 @@ import {
   isTokenRecord,
   classifyAleoTokenType,
   resolvePrivacyContext,
+  stripStakingCounterparties,
   toStakingPosition,
 } from "./utils";
 
@@ -431,6 +433,56 @@ describe("hasPublicAddress", () => {
 });
 
 const NO_TOKENS = new Map<string, AleoTokenType>();
+
+describe("stripStakingCounterparties", () => {
+  const stakingOp = (functionId: string, overrides?: Partial<AleoOperation>) =>
+    getMockedOperation({
+      senders: [""],
+      recipients: [""],
+      extra: { functionId, transactionType: "public" },
+      ...overrides,
+    });
+
+  it.each([
+    TRANSACTION_TYPE.BOND_PUBLIC,
+    TRANSACTION_TYPE.UNBOND_PUBLIC,
+    TRANSACTION_TYPE.CLAIM_UNBOND_PUBLIC,
+  ])("should empty both counterparties of a cached %s op", functionId => {
+    const [result] = stripStakingCounterparties([stakingOp(functionId)]);
+
+    expect(result.senders).toEqual([]);
+    expect(result.recipients).toEqual([]);
+  });
+
+  it("should empty a staking op that cached a real address", () => {
+    const [result] = stripStakingCounterparties([
+      stakingOp(TRANSACTION_TYPE.BOND_PUBLIC, {
+        senders: ["aleo1test"],
+        recipients: ["aleo1test"],
+      }),
+    ]);
+
+    expect(result.senders).toEqual([]);
+    expect(result.recipients).toEqual([]);
+  });
+
+  it("should preserve the counterparties of a non-staking op", () => {
+    const transfer = getMockedOperation();
+    const [result] = stripStakingCounterparties([transfer]);
+
+    expect(result.senders).toEqual(["aleo1test"]);
+    expect(result.recipients).toEqual(["aleo1receiver"]);
+  });
+
+  // Sync compares operation identity, so an untouched op must keep its reference or every
+  // sync would look like it changed the whole history.
+  it("should return already-empty staking ops by reference", () => {
+    const op = stakingOp(TRANSACTION_TYPE.BOND_PUBLIC, { senders: [], recipients: [] });
+    const [result] = stripStakingCounterparties([op]);
+
+    expect(result).toBe(op);
+  });
+});
 
 describe("toPublicOperation", () => {
   const recipientAddress = "aleo1rhgdu77hgyqd3xjj8ucu3jj9r2krwz6mnzyd80gncr5fxcwlh5rsvzp9px";
