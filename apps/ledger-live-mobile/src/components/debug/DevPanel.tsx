@@ -917,21 +917,34 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
 export default function DevPanelHost({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
-  const gesture = useMemo(
-    () =>
-      Gesture.Pan()
-        .minPointers(4)
-        .maxPointers(4)
-        .minDistance(40)
-        .runOnJS(true)
-        .onEnd(e => {
-          // Downward, and mostly vertical.
-          if (e.translationY > 60 && Math.abs(e.translationY) > Math.abs(e.translationX)) {
-            setOpen(true);
-          }
-        }),
-    [],
-  );
+  const gesture = useMemo(() => {
+    // A four-finger swipe competes with every ScrollView on screen, and the
+    // scroll view usually wins the touch. A four-finger long-press does not
+    // move, so nothing else claims it — that is the reliable trigger, with the
+    // swipe kept as a secondary one.
+    const hold = Gesture.LongPress()
+      .numberOfPointers(4)
+      .minDuration(500)
+      .maxDistance(60)
+      .shouldCancelWhenOutside(false)
+      .runOnJS(true)
+      .onStart(() => setOpen(true));
+
+    const swipe = Gesture.Pan()
+      .minPointers(4)
+      .maxPointers(4)
+      .minDistance(30)
+      .shouldCancelWhenOutside(false)
+      .runOnJS(true)
+      .onEnd(e => {
+        // Downward, and mostly vertical.
+        if (e.translationY > 50 && Math.abs(e.translationY) > Math.abs(e.translationX)) {
+          setOpen(true);
+        }
+      });
+
+    return Gesture.Race(hold, swipe);
+  }, []);
 
   if (!getEnv("MOCK")) return <>{children}</>;
 

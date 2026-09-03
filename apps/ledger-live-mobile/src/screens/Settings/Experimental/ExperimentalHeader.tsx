@@ -29,9 +29,10 @@ export function useIsExperimentalHeaderVisible(): boolean {
   const isExperimental = useExperimental();
   const hasLocallyOverriddenFlags = useHasLocallyOverriddenFeatureFlags();
   const featureFlagsBannerVisible = useSelector(featureFlagsBannerVisibleSelector);
-  // HIDE_MOCK_BANNER lets a mock build run without the QA banner taking up the
-  // top of every screen; mock mode itself is unaffected.
-  const isMock = !!Config.MOCK && !Config.HIDE_MOCK_BANNER;
+  // HIDE_MOCK_BANNER suppresses the whole header: mock builds also set
+  // FEATURE_FLAGS, which would otherwise re-show it as "flags overridden".
+  if (Config.HIDE_MOCK_BANNER) return false;
+  const isMock = !!Config.MOCK;
   const areFeatureFlagsOverridden = featureFlagsBannerVisible && hasLocallyOverriddenFlags;
   return isMock || isExperimental || areFeatureFlagsOverridden;
 }
@@ -48,7 +49,8 @@ function ExperimentalHeader() {
   const isExperimental = useExperimental();
   const hasLocallyOverriddenFlags = useHasLocallyOverriddenFeatureFlags();
   const featureFlagsBannerVisible = useSelector(featureFlagsBannerVisibleSelector);
-  const isMock = !!Config.MOCK && !Config.HIDE_MOCK_BANNER;
+  const bannerHidden = !!Config.HIDE_MOCK_BANNER;
+  const isMock = !!Config.MOCK && !bannerHidden;
 
   const areFeatureFlagsOverridden = useMemo(
     () => featureFlagsBannerVisible && hasLocallyOverriddenFlags,
@@ -56,8 +58,8 @@ function ExperimentalHeader() {
   );
 
   const shouldShowHeader = useMemo(
-    () => isExperimental || areFeatureFlagsOverridden,
-    [isExperimental, areFeatureFlagsOverridden],
+    () => !bannerHidden && (isExperimental || areFeatureFlagsOverridden),
+    [bannerHidden, isExperimental, areFeatureFlagsOverridden],
   );
 
   const openState = useSharedValue(isMock ? OPENED_STATE : CLOSED_STATE);
