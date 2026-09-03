@@ -29,13 +29,17 @@ if (parsed) {
 /**
  * Determines which .env file to use based on environment
  */
-export const DOTENV_FILE = process.env.TESTING
-  ? ".env.testing"
-  : process.env.STAGING
-    ? ".env.staging"
-    : process.env.NODE_ENV === "production"
-      ? ".env.production"
-      : ".env";
+export const DOTENV_FILE = process.env.MOCK_BUILD
+  ? // A distributable mock build: MOCK is baked into both bundles so the
+    // packaged app runs against mock data without any env set by the user.
+    ".env.mock"
+  : process.env.TESTING
+    ? ".env.testing"
+    : process.env.STAGING
+      ? ".env.staging"
+      : process.env.NODE_ENV === "production"
+        ? ".env.production"
+        : ".env";
 
 // Load .env so DATADOG_* are available for local builds
 dotenv.config({ path: path.resolve(lldRoot, DOTENV_FILE) });

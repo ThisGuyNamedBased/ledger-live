@@ -175,7 +175,9 @@ const DEFAULT_COUNTERVALUE_TICKER = "USD";
 const OFAC_CURRENCIES_SET = new Set(OFAC_CURRENCIES);
 
 export const INITIAL_STATE: SettingsState = {
-  hasCompletedOnboarding: false,
+  // Onboarding cannot be completed without a real device, so a mock build would
+  // otherwise strand a first-time user on the "connect your Ledger" screen.
+  hasCompletedOnboarding: !!getEnv("MOCK"),
   counterValue: DEFAULT_COUNTERVALUE_TICKER,
   ...getInitialLanguageAndLocale(),
   theme: "dark",
