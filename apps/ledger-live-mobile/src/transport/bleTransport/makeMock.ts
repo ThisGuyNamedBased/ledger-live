@@ -1,4 +1,5 @@
 import Transport from "@ledgerhq/hw-transport";
+import Config from "react-native-config";
 import { firstValueFrom, from, PartialObserver } from "rxjs";
 import { take, first, filter } from "rxjs/operators";
 import type { Device } from "@ledgerhq/types-devices";
@@ -60,12 +61,20 @@ export default (opts: Opts) => {
     }
 
     static async open(device: string | Device) {
-      await firstValueFrom(
-        e2eBridgeClient.pipe(
-          filter(msg => msg.type === "open"),
-          first(),
-        ),
-      );
+      // Detox drives pairing by sending "open" over the bridge. A plain mock
+      // build has no runner attached, so waiting on that message would hang the
+      // pairing screen forever. There, pair after a short delay instead, which
+      // is what the real flow looks like from the UI's point of view.
+      if (Config.DETOX) {
+        await firstValueFrom(
+          e2eBridgeClient.pipe(
+            filter(msg => msg.type === "open"),
+            first(),
+          ),
+        );
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+      }
       return new BluetoothTransportMock(
         typeof device === "string" ? createTransportDeviceMock(device, "", "") : device,
       );
