@@ -8,6 +8,7 @@ import type { HwTransportError } from "@ledgerhq/hw-transport/errors";
 import type { ApduMock } from "~/logic/createAPDUMock";
 import { hookRejections } from "~/logic/debugReject";
 import { e2eBridgeClient } from "~/e2e/bridge/client";
+import { listMockDevices } from "../mockDeviceCatalog";
 
 export type DeviceMock = {
   id: string;
@@ -40,6 +41,20 @@ export default (opts: Opts) => {
     static setLogLevel = (_param: string) => {};
 
     static listen(observer: TransportObserver<DescriptorEvent<Device>, HwTransportError>) {
+      // Without a Detox runner nothing ever publishes to the bridge, so any
+      // screen enumerating devices through the transport stays empty. Emit the
+      // seeded devices first; the bridge subscription below still applies for
+      // Detox runs.
+      if (!Config.DETOX) {
+        for (const device of listMockDevices()) {
+          observer.next({
+            type: "add",
+            descriptor: createTransportDeviceMock(device.id, device.name, device.serviceUuid),
+            deviceModel: undefined,
+          });
+        }
+      }
+
       return e2eBridgeClient
         .pipe(
           filter(msg => msg.type === "add"),

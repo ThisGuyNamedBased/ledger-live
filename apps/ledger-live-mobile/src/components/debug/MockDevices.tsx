@@ -11,20 +11,28 @@
  * app still starts in the unpaired state.
  */
 import { useEffect } from "react";
-import { DeviceModelId } from "@ledgerhq/types-devices";
 import { getEnv } from "@shared/env";
 import { seedMockBleScannedDevices } from "~/transport/bleTransport/useMockBle";
-
-const DISCOVERABLE = [
-  { deviceId: "mock|stax", deviceName: "Ledger Stax", modelId: DeviceModelId.stax, wired: false },
-  { deviceId: "mock|nanoX", deviceName: "Ledger Nano X", modelId: DeviceModelId.nanoX, wired: false },
-  { deviceId: "mock|europa", deviceName: "Ledger Flex", modelId: DeviceModelId.europa, wired: false },
-];
+import { setMockDeviceName } from "~/transport/bleTransport";
+import { listMockDevices } from "~/transport/mockDeviceCatalog";
 
 export default function MockDevices() {
   useEffect(() => {
     if (!getEnv("MOCK")) return;
-    seedMockBleScannedDevices(DISCOVERABLE);
+    const devices = listMockDevices();
+
+    // Seed the transport's name map too, otherwise the APDU get-name command
+    // reports the raw device id until something renames it.
+    devices.forEach(d => setMockDeviceName(d.id, d.name));
+
+    seedMockBleScannedDevices(
+      devices.map(d => ({
+        deviceId: d.id,
+        deviceName: d.name,
+        modelId: d.modelId,
+        wired: false,
+      })),
+    );
   }, []);
 
   return null;
