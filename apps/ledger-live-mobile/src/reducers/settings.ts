@@ -1,3 +1,4 @@
+import Config from "react-native-config";
 import { handleActions, ReducerMap } from "redux-actions";
 import type { Action } from "redux-actions";
 import type { Currency } from "@domain/entity-currency";
@@ -105,7 +106,9 @@ export const INITIAL_STATE: SettingsState = {
   selectedTimeRange: "day",
   orderAccounts: "balance|desc",
   hasCompletedCustomImageFlow: false,
-  hasCompletedOnboarding: false,
+  // SKIP_ONBOARDING lets a mock build boot straight to the portfolio instead of
+  // the "connect your Ledger" flow, which cannot be completed without a device.
+  hasCompletedOnboarding: !!Config.SKIP_ONBOARDING,
   onboardingCompletionDate: null,
   hasInstalledAnyApp: true,
   // readOnlyModeEnabled: !Config.DISABLE_READ_ONLY,
