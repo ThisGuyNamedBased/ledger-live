@@ -33,10 +33,24 @@ import { getCryptoCurrencyById } from "@domain/entity-currency-crypto";
 import { getCryptoAssetsStore } from "@ledgerhq/ledger-wallet-framework/cryptoAssetsStore";
 import { generateHistoryFromOperations } from "@ledgerhq/ledger-wallet-framework/account/balanceHistoryCache";
 import { deviceInfo155, mockListAppsResult } from "@ledgerhq/live-common/apps/mock";
+import { DeviceModelId } from "@ledgerhq/types-devices";
 import { useDispatch, useSelector } from "~/context/hooks";
 import { replaceAccounts } from "~/actions/accounts";
+import { addKnownBleDevice, removeKnownBleDevices } from "~/actions/ble";
 import { accountsSelector } from "~/reducers/accounts";
+import { bleDevicesSelector } from "~/reducers/ble";
 import { mockDeviceEventSubject } from "~/e2e/bridge/types";
+
+/**
+ * A paired device the app will list in My Ledger and device pickers. Mock mode
+ * already answers device *flows*, but nothing is registered as paired, so
+ * screens that enumerate known devices come up empty.
+ */
+const MOCK_DEVICES = [
+  { id: "mock|stax", name: "Ledger Stax", modelId: DeviceModelId.stax },
+  { id: "mock|nanoX", name: "Ledger Nano X", modelId: DeviceModelId.nanoX },
+  { id: "mock|europa", name: "Ledger Flex", modelId: DeviceModelId.europa },
+];
 
 /** Currencies that have a mock bridge. Anything else throws CurrencyNotSupported. */
 const COINS = [
@@ -365,7 +379,7 @@ const s = StyleSheet.create({
   status: { paddingHorizontal: 14, paddingBottom: 8, color: C.good, fontSize: 11 },
 });
 
-type Tab = "portfolio" | "history" | "manual" | "device";
+type Tab = "portfolio" | "history" | "manual" | "devices";
 
 const Chip = ({
   on,
@@ -419,6 +433,7 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
     { key: 1, amount: "1", direction: "IN", daysAgo: 30, fee: "0" },
   ]);
   const nextKey = useRef(2);
+  const pairedDevices = useSelector(bleDevicesSelector);
   const [randCount, setRandCount] = useState(10);
   const [randMax, setRandMax] = useState("0.5");
   const [randSpan, setRandSpan] = useState(90);
@@ -584,6 +599,27 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
     setStatus(`removed ${existing.currency.ticker} #${existing.index}`);
   }, [accounts, target, dispatch]);
 
+  /** Registers a device as paired, so screens that list known devices show it. */
+  const pairDevice = useCallback(
+    (device: (typeof MOCK_DEVICES)[number]) => {
+      dispatch(
+        addKnownBleDevice({
+          id: device.id,
+          name: device.name,
+          modelId: device.modelId,
+        }),
+      );
+      setStatus(`paired ${device.name}`);
+    },
+    [dispatch],
+  );
+
+  /** Back to the unpaired state, so onboarding and pairing flows start clean. */
+  const unpairAll = useCallback(() => {
+    dispatch(removeKnownBleDevices(pairedDevices.map(d => d.id)));
+    setStatus("all devices unpaired");
+  }, [dispatch, pairedDevices]);
+
   const fire = useCallback((events: Record<string, unknown>[]) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     events.forEach(e => mockDeviceEventSubject.next(e as any));
@@ -599,7 +635,7 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
       </View>
 
       <View style={s.tabs}>
-        {(["portfolio", "history", "manual", "device"] as Tab[]).map(t => (
+        {(["portfolio", "history", "manual", "devices"] as Tab[]).map(t => (
           <Pressable
             key={t}
             style={[s.tab, { borderBottomColor: tab === t ? C.accent : "transparent" }]}
@@ -854,8 +890,41 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
           </>
         ) : null}
 
-        {tab === "device" ? (
+        {tab === "devices" ? (
           <>
+            <Text style={s.section}>paired devices ({pairedDevices.length})</Text>
+            {pairedDevices.length > 0 ? (
+              pairedDevices.map(d => (
+                <View key={d.id} style={[s.stepper, { marginBottom: 6 }]}>
+                  <Text style={{ color: "#fff", fontSize: 12 }}>{d.name}</Text>
+                  <Text style={s.hint}>{d.modelId}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={s.note}>
+                None saved - the app behaves like a first install and offers to pair.
+              </Text>
+            )}
+
+            <Text style={s.section}>pair one</Text>
+            <View style={s.grid}>
+              {MOCK_DEVICES.map(d => (
+                <View key={d.id} style={s.cell}>
+                  <Chip
+                    label={d.name}
+                    hint={pairedDevices.some(p => p.id === d.id) ? "paired" : "tap to pair"}
+                    on={pairedDevices.some(p => p.id === d.id)}
+                    onPress={() => pairDevice(d)}
+                  />
+                </View>
+              ))}
+            </View>
+            <Btn label="unpair all" onPress={unpairAll} style={{ marginTop: 6 }} />
+            <Text style={s.note}>
+              Pairing here only writes the saved-devices list, which is what My Ledger and the
+              device pickers read. Unpair to get back to the first-install state.
+            </Text>
+
             <Text style={s.section}>auto-answer</Text>
             <Chip
               label={autoDevice ? "on - flows resolve by themselves" : "off - fire events by hand"}
