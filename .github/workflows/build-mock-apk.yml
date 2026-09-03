@@ -30,6 +30,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The app bundles against the workspace libs' compiled output, so they
+      # have to be built before Metro/repack can resolve @ledgerhq/* imports.
+      - name: Build workspace libraries
+        run: pnpm build:llm:deps
+
       - name: Install NDK
         run: |
           echo "y" | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.12674087"
