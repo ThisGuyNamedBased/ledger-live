@@ -13,6 +13,7 @@ import {
 import { DiscoverDB } from "@ledgerhq/live-common/wallet-api/types";
 import { useDB } from "./db";
 import MockLiveApps from "~/components/debug/MockLiveApps";
+import MockDevices from "~/components/debug/MockDevices";
 
 type PlatformAppProviderWrapperProps = {
   children: ReactNode;
@@ -42,6 +43,7 @@ export default function PlatformAppProviderWrapper({ children }: PlatformAppProv
     >
       <LocalLiveAppProvider db={localLiveAppDB}>
         <MockLiveApps />
+        <MockDevices />
         <RampCatalogProvider updateFrequency={AUTO_UPDATE_DEFAULT_DELAY}>
           {children}
         </RampCatalogProvider>

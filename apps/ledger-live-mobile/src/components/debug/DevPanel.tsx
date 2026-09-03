@@ -289,11 +289,14 @@ const C = {
 
 const s = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" },
+  sheetContainer: { position: "absolute", left: 0, right: 0, bottom: 0, maxHeight: "88%" },
   sheet: {
     backgroundColor: C.bg,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    maxHeight: "88%",
+    // Height is governed by sheetContainer; a second percentage cap here would
+    // compound with it and shrink the scrollable area unpredictably.
+    flexShrink: 1,
     borderTopWidth: 1,
     borderColor: C.accent,
   },
@@ -645,7 +648,12 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
         ))}
       </View>
 
-      <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={s.body}>
+      <ScrollView
+        style={{ flexShrink: 1 }}
+        contentContainerStyle={s.body}
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
         {tab === "portfolio" ? (
           <>
             <Text style={s.section}>presets</Text>
@@ -1049,11 +1057,13 @@ export default function DevPanelHost({ children }: { children: React.ReactNode }
           style={[StyleSheet.absoluteFill, { display: open ? "flex" : "none" }]}
           pointerEvents={open ? "auto" : "none"}
         >
-          <Pressable style={s.backdrop} onPress={() => setOpen(false)}>
-            <Pressable onPress={() => {}}>
-              <DevPanelSheet onClose={() => setOpen(false)} />
-            </Pressable>
-          </Pressable>
+          {/* The backdrop is a sibling, not an ancestor: a Pressable wrapping
+              the sheet steals the touch responder from the ScrollView inside
+              it, which made scrolling stick or not start at all. */}
+          <Pressable style={[StyleSheet.absoluteFill, s.backdrop]} onPress={() => setOpen(false)} />
+          <View style={s.sheetContainer}>
+            <DevPanelSheet onClose={() => setOpen(false)} />
+          </View>
         </View>
       </View>
     </GestureDetector>

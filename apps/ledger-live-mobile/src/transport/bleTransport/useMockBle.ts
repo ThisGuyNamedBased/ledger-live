@@ -79,6 +79,21 @@ export const __testUtils = {
 };
 
 /**
+ * Publishes devices to the mock scan results directly.
+ *
+ * Scanning normally starts empty and is filled by the e2e runner over the
+ * websocket bridge. A mock build with no runner attached therefore finds
+ * nothing, and the app's own pairing flow cannot be exercised. Seeding here
+ * lets that flow run for real: the devices show up in scanning, and pairing
+ * them goes through the app's normal path.
+ */
+export const seedMockBleScannedDevices = (devices: Device[]): void => {
+  mockBleScannedDevices.next(
+    mergeScannedDevices(mockBleScannedDevices.getValue(), devices.map(mapDeviceToScannedDevice)),
+  );
+};
+
+/**
  * Mock hook for BLE device scanning in e2e tests.
  *
  * Subscribes directly to `e2eBridgeClient` for "add" events sent by the
