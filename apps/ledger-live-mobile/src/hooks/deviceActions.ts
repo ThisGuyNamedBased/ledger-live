@@ -31,9 +31,9 @@ import {
   installLanguageExecMock,
   loadImageExecMock,
   removeImageExecMock,
-  renameDeviceExecMock,
 } from "~/e2e/bridge/types";
 import { useFeature } from "@features/platform-feature-flags";
+import renameDeviceMock from "~/transport/renameDeviceMock";
 
 export function useAppDeviceAction({
   allowNonOnboardedDevice = false,
@@ -158,7 +158,9 @@ export function useCompleteExchangeDeviceAction() {
 export function useRenameDeviceAction() {
   const mock = useEnv("MOCK");
   return useMemo(
-    () => renameDeviceCreateAction(mock ? renameDeviceExecMock : renameDevice),
+    // renameDeviceExecMock waits on the shared event subject, which cannot
+    // supply the requested name; renameDeviceMock emits the real sequence.
+    () => renameDeviceCreateAction(mock ? renameDeviceMock : renameDevice),
     [mock],
   );
 }

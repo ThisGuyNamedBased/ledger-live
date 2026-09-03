@@ -1,4 +1,6 @@
 import path from "path";
+import { createRequire } from "module";
+import fs from "fs";
 import { rspack, type RspackOptions } from "@rspack/core";
 import { ReactRefreshRspackPlugin } from "@rspack/plugin-react-refresh";
 import { commonConfig, rootFolder } from "./rspack.common";
@@ -10,6 +12,54 @@ import {
   getRsdoctorPlugin,
   isRsdoctorEnabled,
 } from "./utils";
+
+/**
+ * Resolves a package's directory by name rather than by a hardcoded path into
+ * the pnpm store. The store location is configurable (virtual-store-dir), so a
+ * literal node_modules/.pnpm/<pkg>@<version> path breaks whenever it moves and
+ * has to be re-pinned on every version bump.
+ */
+// createRequire takes a path rather than import.meta.url: this config is
+// compiled as CommonJS by ts-node, where import.meta is not available.
+const requireFrom = createRequire(path.join(rootFolder, "package.json"));
+
+/**
+ * Bases to resolve from. These packages belong to coin modules rather than to
+ * the desktop app, and pnpm does not hoist, so resolving from the app alone
+ * fails. The workspace packages are searched as well.
+ */
+const resolveBases = (): string[] => {
+  const repoRoot = path.join(rootFolder, "..", "..");
+  const bases = [rootFolder, repoRoot];
+  const coinModules = path.join(repoRoot, "libs", "coin-modules");
+  try {
+    for (const entry of fs.readdirSync(coinModules)) {
+      bases.push(path.join(coinModules, entry));
+    }
+  } catch {
+    // no coin-modules directory: fall back to the bases above
+  }
+  bases.push(path.join(repoRoot, "libs", "ledger-live-common"));
+  return bases;
+};
+
+const packageDir = (pkg: string): string =>
+  path.dirname(requireFrom.resolve(`${pkg}/package.json`, { paths: resolveBases() }));
+
+/**
+ * These aliases only pick a smaller build of a package than its browser field
+ * points to, so they are optimisations rather than requirements. A transitive
+ * dependency may not be resolvable from any workspace package, and in that case
+ * the default resolution is correct - just larger. Never fail the build for it.
+ */
+const optionalAlias = (key: string, pkg: string, ...segments: string[]): Record<string, string> => {
+  try {
+    return { [key]: path.join(packageDir(pkg), ...segments) };
+  } catch {
+    return {};
+  }
+};
+
 
 /**
  * Creates the rspack configuration for the Electron renderer process
@@ -93,73 +143,18 @@ export function createRendererConfig(
         "../tests/time": path.resolve(rootFolder, "tests", "time.ts"),
         // Force rspack to use node/esm builds for these packages to reduce bundle size
         // These packages have browser field pointing to larger UMD/web bundles
-        "icon-sdk-js": path.resolve(
-          rootFolder,
-          "..",
-          "..",
-          "node_modules",
-          ".pnpm",
-          "icon-sdk-js@1.5.2",
-          "node_modules",
-          "icon-sdk-js",
-          "build",
-          "icon-sdk-js.node.min.js",
-        ),
+        ...optionalAlias("icon-sdk-js", "icon-sdk-js", "build", "icon-sdk-js.node.min.js"),
         // @stellar/stellar-sdk: browser field is dist/stellar-sdk.min.js (915KB), main is lib/index.js (smaller, tree-shakeable)
-        "@stellar/stellar-sdk": path.resolve(
-          rootFolder,
-          "..",
-          "..",
-          "node_modules",
-          ".pnpm",
-          "@stellar+stellar-sdk@14.0.0",
-          "node_modules",
-          "@stellar",
-          "stellar-sdk",
-          "lib",
-          "index.js",
-        ),
+        ...optionalAlias("@stellar/stellar-sdk", "@stellar/stellar-sdk", "lib", "index.js"),
         // casper-js-sdk: browser field is dist/lib.web.js (1MB), main is dist/lib.node.js (smaller)
-        "casper-js-sdk": path.resolve(
-          rootFolder,
-          "..",
-          "..",
-          "node_modules",
-          ".pnpm",
-          "casper-js-sdk@5.0.5",
-          "node_modules",
-          "casper-js-sdk",
-          "dist",
-          "lib.node.js",
-        ),
+        ...optionalAlias("casper-js-sdk", "casper-js-sdk", "dist", "lib.node.js"),
         // web3: browser field is dist/web3.min.js (1.3MB UMD), main is lib/index.js (tree-shakeable)
         // LIVE-23059: long term solution is to get rid of this deprecated lib
-        web3: path.resolve(
-          rootFolder,
-          "..",
-          "..",
-          "node_modules",
-          ".pnpm",
-          "web3@1.10.4",
-          "node_modules",
-          "web3",
-          "lib",
-          "index.js",
-        ),
+        ...optionalAlias("web3", "web3", "lib", "index.js"),
         // Deduplicate @scure/bip39: multiple versions (1.x from cosmos/casper/filecoin, 2.x from @mysten/sui).
         // The path pins an exact version, so a @mysten/sui bump that moves its 2.x needs it updated.
         // V2 is backward-compatible and shares @noble/hashes@2.x already in the bundle
-        "@scure/bip39": path.resolve(
-          rootFolder,
-          "..",
-          "..",
-          "node_modules",
-          ".pnpm",
-          "@scure+bip39@2.3.0",
-          "node_modules",
-          "@scure",
-          "bip39",
-        ),
+        ...optionalAlias("@scure/bip39", "@scure/bip39"),
       },
     },
     // Ignore specific warnings from polkadot packages
