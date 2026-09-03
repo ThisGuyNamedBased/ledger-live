@@ -914,8 +914,25 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
  * The gesture requires exactly four pointers, so ordinary taps, scrolls and
  * pinches never trigger it.
  */
+/**
+ * Lets anything outside the gesture open the panel — the Debug settings row
+ * uses this, so the panel is reachable even where the gesture is swallowed.
+ */
+let openPanelExternally: (() => void) | null = null;
+
+export function openDevPanel(): void {
+  openPanelExternally?.();
+}
+
 export default function DevPanelHost({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    openPanelExternally = () => setOpen(true);
+    return () => {
+      openPanelExternally = null;
+    };
+  }, []);
 
   const gesture = useMemo(() => {
     // A four-finger swipe competes with every ScrollView on screen, and the

@@ -7,6 +7,7 @@ import { ScreenName } from "~/const";
 import SettingsNavigationScrollView from "../SettingsNavigationScrollView";
 import { StackNavigatorProps } from "~/components/RootNavigator/types/helpers";
 import { SettingsNavigatorStackParamList } from "~/components/RootNavigator/types/SettingsNavigator";
+import { openDevPanel } from "~/components/debug/DevPanel";
 
 export default function DebugSettings({
   navigation: { navigate },
@@ -20,6 +21,12 @@ export default function DebugSettings({
       </Flex>
       <SettingsRow
         hasBorderTop
+        title="Dev panel (mock portfolio)"
+        desc="Build portfolios, edit transactions, answer device flows"
+        iconLeft={<IconsLegacy.GraphGrowMedium size={24} color="black" />}
+        onPress={openDevPanel}
+      />
+      <SettingsRow
         title="Configuration"
         desc="Env variables, feature-flags, and toggles."
         iconLeft={<IconsLegacy.SettingsMedium size={24} color="black" />}
