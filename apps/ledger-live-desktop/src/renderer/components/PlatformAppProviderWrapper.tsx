@@ -8,6 +8,7 @@ import {
 import { useSelector } from "LLD/hooks/redux";
 import { RemoteLiveAppProvider } from "@ledgerhq/live-common/platform/providers/RemoteLiveAppProvider/index";
 import { LocalLiveAppProvider } from "@ledgerhq/live-common/wallet-api/LocalLiveAppProvider/index";
+import MockLiveApps from "~/renderer/components/debug/MockLiveApps";
 import { RampCatalogProvider } from "@ledgerhq/live-common/platform/providers/RampCatalogProvider/index";
 import { useDB } from "../storage";
 import {
@@ -41,6 +42,7 @@ export function PlatformAppProviderWrapper({ children }: PlatformAppProviderWrap
       updateFrequency={AUTO_UPDATE_DEFAULT_DELAY}
     >
       <LocalLiveAppProvider db={localLiveAppDB}>
+        <MockLiveApps />
         <RampCatalogProvider provider={provider} updateFrequency={AUTO_UPDATE_DEFAULT_DELAY}>
           {children}
         </RampCatalogProvider>

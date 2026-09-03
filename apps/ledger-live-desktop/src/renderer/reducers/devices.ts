@@ -95,6 +95,13 @@ export const getCurrentDevice = createSelector(
       };
     }
 
+    // In mock, an explicitly connected device wins over the bypass below, which
+    // would otherwise pin every mock session to a Nano S. That lets a dev tool
+    // choose which model the app thinks is plugged in.
+    if (getEnv("MOCK") && currentDevice) {
+      return currentDevice;
+    }
+
     const envConditions = [
       { condition: getEnv("DEVICE_PROXY_URL"), modelId: DeviceModelId.nanoS },
       { condition: getEnv("MOCK") && !getEnv("MOCK_NO_BYPASS"), modelId: DeviceModelId.nanoS },

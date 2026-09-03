@@ -43,6 +43,45 @@ function temporalFactor(from: string, to: string, maybeDate: Date | undefined) {
   return Math.max(0, res);
 }
 
+/**
+ * Rough USD parities for the fiats the app offers as countervalues.
+ *
+ * Without these, `rate()` resolves only BTC and USD: any other fiat falls
+ * through to a recursive lookup of its own BTC value, which does not exist, so
+ * the rate comes back undefined and balances never load once the user switches
+ * currency. Values are approximate on purpose - this is mock data.
+ */
+const FIAT_PER_USD: Record<string, number> = {
+  EUR: 0.92,
+  GBP: 0.79,
+  CHF: 0.88,
+  JPY: 157,
+  CNY: 7.24,
+  AUD: 1.52,
+  CAD: 1.37,
+  SEK: 10.7,
+  NOK: 10.8,
+  DKK: 6.87,
+  PLN: 3.97,
+  CZK: 23.2,
+  HUF: 360,
+  RON: 4.58,
+  BGN: 1.8,
+  TRY: 33.5,
+  RUB: 89,
+  INR: 83.5,
+  BRL: 5.45,
+  MXN: 18.3,
+  ZAR: 18.6,
+  KRW: 1370,
+  SGD: 1.35,
+  HKD: 7.81,
+  NZD: 1.66,
+  AED: 3.67,
+  ILS: 3.72,
+  UAH: 41,
+};
+
 function rate(from: string, to: string, date?: Date): number | undefined {
   const asBTC = getBTCValues()[from];
   if (!asBTC) return;
@@ -53,6 +92,11 @@ function rate(from: string, to: string, date?: Date): number | undefined {
 
   if (to === "USD") {
     return asBTC * BTCtoUSD * temporalFactor(from, to, date);
+  }
+
+  const perUSD = FIAT_PER_USD[to];
+  if (perUSD) {
+    return asBTC * BTCtoUSD * perUSD * temporalFactor(from, to, date);
   }
 
   if (from === "BTC") {

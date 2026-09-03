@@ -21,7 +21,10 @@ import { getCryptoAssetsStore } from "@ledgerhq/ledger-wallet-framework/cryptoAs
 import { generateHistoryFromOperations } from "@ledgerhq/ledger-wallet-framework/account/balanceHistoryCache";
 import { deviceInfo155, mockListAppsResult } from "@ledgerhq/live-common/apps/mock";
 import { replaceAccounts } from "~/renderer/actions/accounts";
+import { addDevice, removeDevice, resetDevices } from "~/renderer/actions/devices";
+import { DeviceModelId } from "@ledgerhq/devices";
 import { accountsSelector } from "~/renderer/reducers/accounts";
+import type { State } from "~/renderer/reducers";
 
 /** Currencies that have a mock bridge. Anything else throws CurrencyNotSupported. */
 const COINS = [
@@ -125,6 +128,14 @@ const PRESETS: Preset[] = [
 ];
 
 const DAY = 24 * 60 * 60 * 1000;
+
+/** Models the panel can present as the connected device. */
+const MOCK_DEVICES = [
+  { label: "Nano S", modelId: DeviceModelId.nanoS },
+  { label: "Nano X", modelId: DeviceModelId.nanoX },
+  { label: "Stax", modelId: DeviceModelId.stax },
+  { label: "Flex", modelId: DeviceModelId.europa },
+];
 
 /**
  * Operations come out of the generator only hours apart, so even 100 of them
@@ -467,8 +478,10 @@ function useAutoDevice(enabled: boolean) {
 const DevPortfolioPanel = () => {
   const dispatch = useDispatch();
   const accounts = useSelector(accountsSelector);
+  // reducers/devices exports no list selector; read the slice directly.
+  const connectedDevices = useSelector((state: State) => state.devices.devices);
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"portfolio" | "history" | "manual" | "device">("portfolio");
+  const [tab, setTab] = useState<"portfolio" | "history" | "manual" | "devices">("portfolio");
   const [rows, setRows] = useState<Row[]>(PRESETS[0].rows);
   const [tokens, setTokens] = useState<string[]>([]);
   const [ops, setOps] = useState(40);
@@ -718,6 +731,27 @@ const DevPortfolioPanel = () => {
     [accounts],
   );
 
+  const connectDevice = useCallback(
+    (d: (typeof MOCK_DEVICES)[number]) => {
+      dispatch(addDevice({ deviceId: `mock|${d.modelId}`, modelId: d.modelId, wired: true }));
+      setStatus(`connected ${d.label}`);
+    },
+    [dispatch],
+  );
+
+  const disconnectDevice = useCallback(
+    (d: { deviceId: string; modelId: DeviceModelId; wired: boolean }) => {
+      dispatch(removeDevice(d));
+      setStatus("device disconnected");
+    },
+    [dispatch],
+  );
+
+  const disconnectAll = useCallback(() => {
+    dispatch(resetDevices());
+    setStatus("all devices disconnected");
+  }, [dispatch]);
+
   const fire = useCallback((events: Record<string, unknown>[]) => {
     window.mock?.events.mockDeviceEvent(...events);
   }, []);
@@ -734,7 +768,7 @@ const DevPortfolioPanel = () => {
       </Header>
 
       <Tabs>
-        {(["portfolio", "history", "manual", "device"] as const).map(t => (
+        {(["portfolio", "history", "manual", "devices"] as const).map(t => (
           <Tab key={t} $on={tab === t} onClick={() => setTab(t)}>
             {t}
           </Tab>
@@ -957,8 +991,44 @@ const DevPortfolioPanel = () => {
           </>
         )}
 
-        {tab === "device" && (
+        {tab === "devices" && (
           <>
+            <Section>connected device ({connectedDevices.length})</Section>
+            {connectedDevices.length > 0 ? (
+              connectedDevices.map(d => (
+                <Stepper key={d.deviceId || d.modelId} $on style={{ marginBottom: 6 }}>
+                  <span style={{ color: "#fff" }}>{d.modelId}</span>
+                  <Step onClick={() => disconnectDevice(d)} title="disconnect">
+                    x
+                  </Step>
+                </Stepper>
+              ))
+            ) : (
+              <Note style={{ marginTop: 0 }}>
+                None connected - mock falls back to a Nano S so device flows still run.
+              </Note>
+            )}
+
+            <Section>connect one</Section>
+            <Grid>
+              {MOCK_DEVICES.map(d => (
+                <Chip
+                  key={d.modelId}
+                  $on={connectedDevices.some(c => c.modelId === d.modelId)}
+                  onClick={() => connectDevice(d)}
+                >
+                  {d.label}
+                </Chip>
+              ))}
+            </Grid>
+            <Button onClick={disconnectAll} style={{ marginTop: 6 }}>
+              disconnect all
+            </Button>
+            <Note>
+              Desktop connects over USB, so this is connect/disconnect rather than pairing. The
+              connected model wins over the mock Nano S fallback.
+            </Note>
+
             <Section>auto-answer</Section>
             <Stepper $on={autoDevice} style={{ justifyContent: "flex-start", gap: 8 }}>
               <input
@@ -989,6 +1059,7 @@ const DevPortfolioPanel = () => {
 
       <Status>{busy ? "building..." : status}</Status>
 
+      {tab === "portfolio" || tab === "history" ? (
       <Actions>
         <Button $primary onClick={apply} disabled={busy}>
           apply ({total})
@@ -1001,6 +1072,7 @@ const DevPortfolioPanel = () => {
         </Button>
         <Button onClick={clear}>clear</Button>
       </Actions>
+      ) : null}
     </Panel>
   );
 };
