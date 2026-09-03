@@ -16,7 +16,6 @@
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -950,30 +949,35 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
 
       <Text style={s.status}>{busy ? "building..." : status}</Text>
 
-      <View style={s.actions}>
-        <Btn
-          label={`apply (${total})`}
-          primary
-          onPress={() => build("replace")}
-          style={{ marginRight: 6 }}
-        />
-        <Btn label="add" onPress={() => build("append")} style={{ marginRight: 6 }} />
-        <Btn
-          label="reroll"
-          onPress={() => {
-            roll.current += 1;
-            build("replace");
-          }}
-          style={{ marginRight: 6 }}
-        />
-        <Btn
-          label="clear"
-          onPress={() => {
-            dispatch(replaceAccounts([]));
-            setStatus("portfolio emptied");
-          }}
-        />
-      </View>
+      {/* The generator overwrites the whole portfolio, so these only appear on
+          the tabs that own it. On manual/devices they would silently discard
+          hand-written accounts. */}
+      {tab === "portfolio" || tab === "history" ? (
+        <View style={s.actions}>
+          <Btn
+            label={`apply (${total})`}
+            primary
+            onPress={() => build("replace")}
+            style={{ marginRight: 6 }}
+          />
+          <Btn label="add" onPress={() => build("append")} style={{ marginRight: 6 }} />
+          <Btn
+            label="reroll"
+            onPress={() => {
+              roll.current += 1;
+              build("replace");
+            }}
+            style={{ marginRight: 6 }}
+          />
+          <Btn
+            label="clear"
+            onPress={() => {
+              dispatch(replaceAccounts([]));
+              setStatus("portfolio emptied");
+            }}
+          />
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -1038,18 +1042,19 @@ export default function DevPanelHost({ children }: { children: React.ReactNode }
     <GestureDetector gesture={gesture}>
       <View style={{ flex: 1 }}>
         {children}
-        <Modal
-          visible={open}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setOpen(false)}
+        {/* Deliberately not a Modal: Modal unmounts its children when hidden,
+            which wiped every typed row each time the panel was closed. This
+            overlay stays mounted and is only hidden, so edits survive. */}
+        <View
+          style={[StyleSheet.absoluteFill, { display: open ? "flex" : "none" }]}
+          pointerEvents={open ? "auto" : "none"}
         >
           <Pressable style={s.backdrop} onPress={() => setOpen(false)}>
             <Pressable onPress={() => {}}>
               <DevPanelSheet onClose={() => setOpen(false)} />
             </Pressable>
           </Pressable>
-        </Modal>
+        </View>
       </View>
     </GestureDetector>
   );
