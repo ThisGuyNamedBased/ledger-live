@@ -112,7 +112,9 @@ export const INITIAL_STATE: SettingsState = {
   onboardingCompletionDate: null,
   hasInstalledAnyApp: true,
   // readOnlyModeEnabled: !Config.DISABLE_READ_ONLY,
-  readOnlyModeEnabled: true,
+  // Read-only is the "no device yet" experience. Skipping onboarding without
+  // clearing it leaves the app acting as if no Ledger were ever paired.
+  readOnlyModeEnabled: !Config.SKIP_ONBOARDING,
   hasOrderedNano: false,
   countervalueFirst: true,
   graphCountervalueFirst: true,
