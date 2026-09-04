@@ -176,6 +176,24 @@ const currencyIdApproxMarketPrice: Record<string, number> = {
   polygon: 1.0e-15,
   bsc: 5.0e-14,
   optimism: 2.0e-15,
+  // Currencies missing from this table fall back to bitcoin's scale, which for
+  // high-precision units generates dust that rounds to 0 in the UI - Solana
+  // being the obvious case. These divisors are picked so a generated account
+  // lands on a plausible holding rather than an accurate price.
+  solana: 2.0e-5,
+  cardano: 5.0e-5,
+  polkadot: 5.0e-8,
+  cosmos: 2.0e-4,
+  tezos: 1.0e-4,
+  stellar: 2.0e-6,
+  algorand: 3.3e-5,
+  tron: 2.0e-5,
+  elrond: 5.0e-15,
+  icon: 3.3e-17,
+  casper: 1.0e-7,
+  arbitrum: 5.7033e-14,
+  base: 5.7033e-14,
+  avalanche_c_chain: 2.0e-15,
 };
 // TODO fix the mock to never generate negative balance...
 

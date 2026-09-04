@@ -56,6 +56,11 @@ const COINS = [
   { id: "bitcoin", label: "BTC" },
   { id: "ethereum", label: "ETH" },
   { id: "arbitrum", label: "ARB" },
+  { id: "base", label: "BASE" },
+  { id: "optimism", label: "OP" },
+  { id: "polygon", label: "POL" },
+  { id: "bsc", label: "BNB" },
+  { id: "avalanche_c_chain", label: "AVAX" },
   { id: "solana", label: "SOL" },
   { id: "cardano", label: "ADA" },
   { id: "polkadot", label: "DOT" },
@@ -65,6 +70,9 @@ const COINS = [
   { id: "algorand", label: "ALGO" },
   { id: "ripple", label: "XRP" },
   { id: "tron", label: "TRX" },
+  { id: "elrond", label: "EGLD" },
+  { id: "icon", label: "ICX" },
+  { id: "casper", label: "CSPR" },
 ];
 
 const TOKENS = [
