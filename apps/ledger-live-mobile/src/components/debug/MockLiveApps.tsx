@@ -7,14 +7,15 @@
  * JSON blob surviving react-native-config, and local manifests take precedence
  * over remote ones in useLiveAppManifest.
  *
- * A Live App is a remote web page in a webview, so this makes the tab resolve an
- * app and load the real hosted UI against the mock accounts. It cannot fabricate
- * the Swap or Earn interface itself.
+ * The manifests point at a stub app embedded as a data: URL rather than at the
+ * real remote apps, so the tabs work offline and never reach a provider. See
+ * mockLiveAppHtml for what the stub does and deliberately does not do.
  */
 import { useEffect } from "react";
 import { useLocalLiveAppContext } from "@ledgerhq/live-common/wallet-api/LocalLiveAppProvider/index";
 import type { LiveAppManifest } from "@ledgerhq/live-common/platform/types";
 import { getEnv } from "@shared/env";
+import { MOCK_EARN_URL, MOCK_SWAP_URL } from "./mockLiveAppHtml";
 
 const PERMISSIONS = [
   "account.list",
@@ -57,14 +58,17 @@ const manifest = (
       description: { en: `${name} (mock manifest)` },
     },
     permissions: PERMISSIONS,
-    domains: ["https://*"],
+    // Includes data: so the stub app served from the manifest itself is allowed.
+    domains: ["*"],
     visibility: "complete",
   }) as unknown as LiveAppManifest;
 
 /** Ids the Swap and Earn entry points look up. */
 const MOCK_MANIFESTS = [
-  manifest("swap-live-app-demo-3", "Swap", "https://swap-live-app.ledger.com/", "swap"),
-  manifest("earn", "Earn", "https://earn.live.ledger.com/", "earn"),
+  // Served from the manifest itself: a remote URL either fails with no network
+  // or reaches the real provider with it, neither of which is a mock.
+  manifest("swap-live-app-demo-3", "Swap", MOCK_SWAP_URL, "swap"),
+  manifest("earn", "Earn", MOCK_EARN_URL, "earn"),
 ];
 
 export default function MockLiveApps() {

@@ -12,6 +12,7 @@ import { initialWebviewState } from "~/components/Web3AppWebview/helpers";
 import { WebviewAPI, WebviewState } from "~/components/Web3AppWebview/types";
 import { DefaultAccountSwapParamList } from "../../types";
 import { useNetInfo } from "@react-native-community/netinfo";
+import { getEnv } from "@shared/env";
 
 // set the default manifest ID for the production swap live app
 // in case the FF is failing to load the manifest ID
@@ -120,7 +121,10 @@ export function useSwapLiveAppState(params: unknown) {
   }, [params]);
 
   const error: Error | null = useMemo(() => {
-    const hasError = !manifest || isWebviewError || !isConnected;
+    // The mock swap app is served from its own manifest, so it loads offline.
+    // Treating "no network" as fatal would block it for no reason.
+    const requiresNetwork = !getEnv("MOCK");
+    const hasError = !manifest || isWebviewError || (requiresNetwork && !isConnected);
     if (!hasError) return null;
 
     const APP_FAILED_TO_LOAD = new Error(t("errors.AppManifestNotFoundError.title"));
@@ -128,7 +132,7 @@ export function useSwapLiveAppState(params: unknown) {
     const APP_MANIFEST_NETWORK_DOWN_ERROR = new Error(t("errors.WebPTXPlayerNetworkFail.title"));
 
     // in QAA isConnected remains null and is crashing the tests
-    if (isConnected === false) return APP_MANIFEST_NETWORK_DOWN_ERROR;
+    if (requiresNetwork && isConnected === false) return APP_MANIFEST_NETWORK_DOWN_ERROR;
     if (isWebviewError) return APP_FAILED_TO_LOAD;
     if (!manifest) return APP_MANIFEST_NOT_FOUND_ERROR;
 
