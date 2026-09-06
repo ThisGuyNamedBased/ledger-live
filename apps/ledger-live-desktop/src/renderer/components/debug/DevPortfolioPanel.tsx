@@ -492,6 +492,7 @@ const DevPortfolioPanel = () => {
   const [tokens, setTokens] = useState<string[]>([]);
   const [ops, setOps] = useState(40);
   const [days, setDays] = useState(90);
+  const [withNft, setWithNft] = useState(false);
   const [autoDevice, setAutoDevice] = useState(true);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -572,6 +573,7 @@ const DevPortfolioPanel = () => {
             const account = genAccount(`${roll.current}_${row.id}_${i}`, {
               currency,
               operationsSize: ops,
+              withNft,
               tokenIds: tokensData.map(t => t.id),
               tokensData,
               subAccountsCount: tokensData.length,
@@ -598,7 +600,7 @@ const DevPortfolioPanel = () => {
         setBusy(false);
       }
     },
-    [rows, tokens, ops, days, accounts, dispatch],
+    [rows, tokens, ops, days, withNft, accounts, dispatch],
   );
 
   const apply = useCallback(() => build("replace"), [build]);
@@ -827,6 +829,19 @@ const DevPortfolioPanel = () => {
             <Note>
               Selected tokens become sub-accounts of every account that supports them. Other coins
               ignore them.
+            </Note>
+
+            <Section>nfts</Section>
+            <Stepper $on={withNft} style={{ justifyContent: "flex-start", gap: 8 }}>
+              <input
+                type="checkbox"
+                checked={withNft}
+                onChange={e => setWithNft(e.target.checked)}
+              />
+              <span>generate NFTs</span>
+            </Stepper>
+            <Note>
+              Adds fixture NFTs and NFT operations. Ethereum accounts also get a Stax-format one.
             </Note>
           </>
         )}

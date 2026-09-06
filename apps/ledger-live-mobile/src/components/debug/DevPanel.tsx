@@ -432,6 +432,7 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
   const [tokens, setTokens] = useState<string[]>([]);
   const [ops, setOps] = useState(40);
   const [days, setDays] = useState(90);
+  const [withNft, setWithNft] = useState(false);
   const [autoDevice, setAutoDevice] = useState(true);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
@@ -486,6 +487,7 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
             const account = genAccount(`${roll.current}_${row.id}_${i}`, {
               currency,
               operationsSize: ops,
+              withNft,
               tokenIds: tokensData.map(t => t.id),
               tokensData,
               subAccountsCount: tokensData.length,
@@ -508,7 +510,7 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
         setBusy(false);
       }
     },
-    [rows, tokens, ops, days, accounts, dispatch],
+    [rows, tokens, ops, days, withNft, accounts, dispatch],
   );
 
   const manualCurrencyId = useMemo(() => {
@@ -723,6 +725,16 @@ const DevPanelSheet = ({ onClose }: { onClose: () => void }) => {
             </View>
             <Text style={s.note}>
               Tokens attach to ETH / SOL / TRX / ALGO accounts. Other coins ignore them.
+            </Text>
+
+            <Text style={s.section}>nfts</Text>
+            <Chip
+              label={withNft ? "on - 10 NFTs per account" : "off"}
+              on={withNft}
+              onPress={() => setWithNft(v => !v)}
+            />
+            <Text style={s.note}>
+              Adds fixture NFTs and NFT operations. Ethereum accounts also get a Stax-format one.
             </Text>
           </>
         ) : null}
